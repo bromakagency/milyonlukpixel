@@ -65,20 +65,52 @@ export default async function handler(req: any, res: any) {
       to: recipients,
       subject: `Yeni Pixel Satin Alindi: ${pixel.title}`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #ef4444;">Yeni Pixel Satin Alindi!</h2>
-          <div style="background: #f4f4f4; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="margin: 0 0 10px 0;">${pixel.title || 'Isimsiz'}</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr><td style="padding: 8px 0; color: #666;">Konum:</td><td style="padding: 8px 0; font-weight: bold;">X: ${pixel.x * 10}, Y: ${pixel.y * 10}</td></tr>
-              <tr><td style="padding: 8px 0; color: #666;">Boyut:</td><td style="padding: 8px 0; font-weight: bold;">${pixel.w * 10}x${pixel.h * 10} px</td></tr>
-              <tr><td style="padding: 8px 0; color: #666;">Alan:</td><td style="padding: 8px 0; font-weight: bold;">${pixel.w * pixel.h} blok</td></tr>
-              <tr><td style="padding: 8px 0; color: #666;">Tutar:</td><td style="padding: 8px 0; font-weight: bold; font-size: 18px;">TL${pixel.amount.toLocaleString()}</td></tr>
-            </table>
-          </div>
-          <div style="margin: 20px 0;">
-            <p style="margin: 5px 0;"><strong>Gorsel:</strong> <a href="${pixel.imageUrl}">${pixel.imageUrl}</a></p>
-            <p style="margin: 5px 0;"><strong>Link:</strong> <a href="${pixel.linkUrl}">${pixel.linkUrl}</a></p>
+        <div style="margin:0;padding:24px;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#111827;">
+          <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.08);">
+            <div style="padding:24px 28px;background:linear-gradient(135deg,#111827 0%,#1f2937 60%,#ef4444 100%);">
+              <p style="margin:0 0 8px 0;color:#d1d5db;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;">Milyonluk Pixel</p>
+              <h2 style="margin:0;color:#ffffff;font-size:26px;line-height:1.2;font-weight:800;">Yeni Pixel Satin Alindi</h2>
+              <p style="margin:10px 0 0 0;color:#f3f4f6;font-size:14px;">Yeni bir satin alma islemi gerceklesti. Detaylar asagida.</p>
+            </div>
+
+            <div style="padding:24px 28px;">
+              <div style="display:inline-block;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;letter-spacing:0.02em;">
+                SATIS BILDIRIMI
+              </div>
+
+              <h3 style="margin:16px 0 6px 0;font-size:24px;line-height:1.2;color:#111827;">${pixel.title || 'Isimsiz'}</h3>
+              <p style="margin:0 0 20px 0;color:#6b7280;font-size:14px;">Pixel alani basariyla rezerve edildi.</p>
+
+              <div style="background:#111827;border-radius:14px;padding:18px 20px;margin-bottom:18px;">
+                <p style="margin:0 0 8px 0;color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">Toplam Tutar</p>
+                <p style="margin:0;color:#ffffff;font-size:34px;line-height:1;font-weight:800;">TL${pixel.amount.toLocaleString('tr-TR')}</p>
+              </div>
+
+              <table style="width:100%;border-collapse:separate;border-spacing:0 10px;">
+                <tr>
+                  <td style="width:38%;padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-right:none;border-radius:10px 0 0 10px;color:#6b7280;font-size:14px;">Konum</td>
+                  <td style="padding:12px 14px;background:#ffffff;border:1px solid #e5e7eb;border-left:none;border-radius:0 10px 10px 0;color:#111827;font-size:14px;font-weight:700;">X: ${pixel.x * 10}, Y: ${pixel.y * 10}</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-right:none;border-radius:10px 0 0 10px;color:#6b7280;font-size:14px;">Boyut</td>
+                  <td style="padding:12px 14px;background:#ffffff;border:1px solid #e5e7eb;border-left:none;border-radius:0 10px 10px 0;color:#111827;font-size:14px;font-weight:700;">${pixel.w * 10}x${pixel.h * 10} px</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-right:none;border-radius:10px 0 0 10px;color:#6b7280;font-size:14px;">Alan</td>
+                  <td style="padding:12px 14px;background:#ffffff;border:1px solid #e5e7eb;border-left:none;border-radius:0 10px 10px 0;color:#111827;font-size:14px;font-weight:700;">${pixel.w * pixel.h} blok</td>
+                </tr>
+              </table>
+
+              <div style="margin-top:22px;padding:16px;border:1px dashed #d1d5db;border-radius:12px;background:#fcfcfd;">
+                <p style="margin:0 0 10px 0;color:#111827;font-size:13px;font-weight:700;">Baglantilar</p>
+                <p style="margin:0 0 8px 0;font-size:13px;color:#374151;"><strong>Gorsel:</strong> <a href="${pixel.imageUrl}" style="color:#2563eb;text-decoration:none;">${pixel.imageUrl}</a></p>
+                <p style="margin:0;font-size:13px;color:#374151;"><strong>Link:</strong> <a href="${pixel.linkUrl}" style="color:#2563eb;text-decoration:none;">${pixel.linkUrl}</a></p>
+              </div>
+            </div>
+
+            <div style="padding:14px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;color:#6b7280;font-size:12px;">Bu bildirim otomatik gonderildi.</p>
+            </div>
           </div>
         </div>
       `,
