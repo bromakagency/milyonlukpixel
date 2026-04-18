@@ -44,52 +44,38 @@ export const api = {
   },
 
   async createPixel(data: PixelFormData): Promise<PixelBlock> {
-    const token = localStorage.getItem('adminToken');
-    
-    const res = await fetch('/api/pixels', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify(data),
+    const pixel = await db.pixels.create({
+      x: data.x,
+      y: data.y,
+      w: data.w,
+      h: data.h,
+      image_url: data.imageUrl,
+      link_url: data.linkUrl,
+      title: data.title,
     });
-    
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ error: 'Pixel oluşturulamadı' }));
-      throw new Error(error.error || `HTTP ${res.status}`);
-    }
-    
-    return res.json();
+
+    return toPixelBlock(pixel);
   },
 
   async updatePixel(id: string, data: Partial<PixelFormData>): Promise<PixelBlock> {
-    const token = localStorage.getItem('adminToken');
-    
-    const res = await fetch(`/api/pixels/${id}`, {
-      method: 'PUT',
-      headers: { 
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify(data),
-    });
-    
-    if (!res.ok) throw new Error('Pixel güncellenemedi');
-    return res.json();
+    const updates: Partial<Pixel> = {};
+
+    if (typeof data.x === 'number') updates.x = data.x;
+    if (typeof data.y === 'number') updates.y = data.y;
+    if (typeof data.w === 'number') updates.w = data.w;
+    if (typeof data.h === 'number') updates.h = data.h;
+    if (typeof data.imageUrl === 'string') updates.image_url = data.imageUrl;
+    if (typeof data.linkUrl === 'string') updates.link_url = data.linkUrl;
+    if (typeof data.title === 'string') updates.title = data.title;
+
+    const pixel = await db.pixels.update(id, updates);
+    if (!pixel) throw new Error('Pixel güncellenemedi');
+    return toPixelBlock(pixel);
   },
 
   async deletePixel(id: string): Promise<void> {
-    const token = localStorage.getItem('adminToken');
-    
-    const res = await fetch(`/api/pixels/${id}`, {
-      method: 'DELETE',
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-    });
-    
-    if (!res.ok) throw new Error('Silme başarısız');
+    const deleted = await db.pixels.delete(id);
+    if (!deleted) throw new Error('Silme başarısız');
   },
 
   async getStats(): Promise<Stats> {
