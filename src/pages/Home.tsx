@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Header } from '../components/Header';
 import { Grid } from '../components/Grid';
 import { Modal } from '../components/Modal';
@@ -8,13 +8,9 @@ import { usePixels } from '../hooks/usePixels';
 import { PixelFormData } from '../types';
 
 export function Home() {
-  const { pixels, fetchPixels, createPixel, stats } = usePixels();
+  const { createPixel } = usePixels();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCoords, setSelectedCoords] = useState<{ x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    fetchPixels();
-  }, [fetchPixels]);
 
   const handlePixelSelect = (x: number, y: number) => {
     setSelectedCoords({ x, y });
