@@ -60,21 +60,28 @@ export function Grid({ onPixelSelect }: GridProps) {
 
   return (
     <>
-      <div className="fixed top-2 left-2 md:absolute md:-top-10 md:left-0 z-30 font-mono text-xs md:text-sm font-bold bg-black text-white px-2 md:px-3 py-1 md:py-2 brutal-shadow-sm">
-        {mousePos ? `X: ${mousePos.x * 10} | Y: ${mousePos.y * 10}` : 'X: --- | Y: ---'}
+      <div className="flex justify-between items-center mb-2 font-mono text-xs md:text-sm font-bold">
+        <div className="bg-black text-white px-2 md:px-3 py-1 md:py-2 brutal-shadow-sm">
+          {mousePos ? `X: ${mousePos.x * 10} | Y: ${mousePos.y * 10}` : 'X: --- | Y: ---'}
+        </div>
+        <div className="bg-white border-2 border-black px-2 md:px-3 py-1 md:py-2 brutal-shadow-sm">
+          1000 x 1000 PX
+        </div>
       </div>
 
-      <div className="fixed top-2 right-2 md:absolute md:-top-10 md:right-0 z-30 font-mono text-xs md:text-sm font-bold bg-white border-2 border-black px-2 md:px-3 py-1 md:py-2 brutal-shadow-sm">
-        1000 x 1000 PX
-      </div>
-
-      <div className="border-2 md:border-4 border-black bg-white brutal-shadow-lg p-0 mx-auto w-fit">
+      <div
+        className="border-2 md:border-4 border-black bg-white brutal-shadow-lg p-0 mx-auto overflow-hidden"
+        style={{
+          width: 1000 * gridScale,
+          height: 1000 * gridScale,
+        }}
+      >
         <div
           className="relative pixel-grid cursor-crosshair"
           style={{ 
             width: 1000, 
             height: 1000, 
-            transform: `scale(var(--grid-scale, 1))`,
+            transform: `scale(${gridScale})`,
             transformOrigin: 'top left'
           }}
           onClick={handleClick}

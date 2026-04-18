@@ -31,8 +31,8 @@ export function Home() {
       <SalesFeed />
       <Header />
       
-      <main className="flex-1 w-full overflow-auto p-2 md:p-12 flex justify-center items-start bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4xKSIvPjwvc3ZnPg==')]">
-        <div className="relative mb-20 min-w-full">
+      <main className="flex-1 w-full p-2 md:p-12 flex flex-col justify-start items-center bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjEiIGZpbGw9InJnYmEoMCwwLDAsMC4xKSIvPjwvc3ZnPg==')]">
+        <div className="w-full flex flex-col items-center pb-8">
           <Grid onPixelSelect={handlePixelSelect} />
         </div>
       </main>
