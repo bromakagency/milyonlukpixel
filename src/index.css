@@ -7,6 +7,23 @@
   --font-mono: "JetBrains Mono", monospace;
 }
 
+html, body, #root {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+.pixel-block {
+  background-color: #000;
+}
+
+.pixel-block img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
 .brutal-shadow {
   box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
 }

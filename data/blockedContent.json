@@ -1,0 +1,38 @@
+[
+  {
+    "id": "1776112646852",
+    "type": "keyword",
+    "value": "test",
+    "reason": "test",
+    "createdAt": "2026-04-13T20:37:26.852Z",
+    "createdBy": "1",
+    "isActive": false
+  },
+  {
+    "id": "1776112658347",
+    "type": "keyword",
+    "value": "porno",
+    "reason": "+18 ondan",
+    "createdAt": "2026-04-13T20:37:38.347Z",
+    "createdBy": "1",
+    "isActive": false
+  },
+  {
+    "id": "1776112722968",
+    "type": "domain",
+    "value": "porno.com",
+    "reason": "yasak çünkü",
+    "createdAt": "2026-04-13T20:38:42.968Z",
+    "createdBy": "1",
+    "isActive": false
+  },
+  {
+    "id": "1776112754166",
+    "type": "domain",
+    "value": "https://porno.com",
+    "reason": "sada",
+    "createdAt": "2026-04-13T20:39:14.166Z",
+    "createdBy": "1",
+    "isActive": false
+  }
+]
