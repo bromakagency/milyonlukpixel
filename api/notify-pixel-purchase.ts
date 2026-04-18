@@ -46,13 +46,23 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  const recipients = adminEmail
+    .split(',')
+    .map((email) => email.trim())
+    .filter(Boolean);
+
+  if (recipients.length === 0) {
+    res.status(500).json({ error: 'ADMIN_EMAIL gecersiz' });
+    return;
+  }
+
   const pixel = req.body;
   const resend = new Resend(apiKey);
 
   try {
     const { error } = await resend.emails.send({
       from: fromEmail,
-      to: adminEmail,
+      to: recipients,
       subject: `Yeni Pixel Satin Alindi: ${pixel.title}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
