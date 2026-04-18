@@ -54,6 +54,22 @@ export const api = {
       title: data.title,
     });
 
+    // Maili backend'e gönder, hata olsa da satın alma akışı kesilmesin.
+    void fetch('/api/notify-pixel-purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: data.title,
+        x: data.x,
+        y: data.y,
+        w: data.w,
+        h: data.h,
+        imageUrl: data.imageUrl,
+        linkUrl: data.linkUrl,
+        amount: data.w * data.h * 100,
+      }),
+    }).catch(() => undefined);
+
     return toPixelBlock(pixel);
   },
 
