@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import { Zap } from 'lucide-react';
 
@@ -9,9 +9,8 @@ interface SaleItem {
   y: number;
   w: number;
   h: number;
-  imageUrl: string;
-  linkUrl: string;
   createdAt: string;
+  linkUrl: string;
 }
 
 function rowToSaleItem(row: any): SaleItem {
@@ -22,113 +21,83 @@ function rowToSaleItem(row: any): SaleItem {
     y: row.y,
     w: row.w,
     h: row.h,
-    imageUrl: row.image_url,
     linkUrl: row.link_url,
     createdAt: row.created_at,
   };
 }
 
 export function SalesFeed() {
-  const [recentSales, setRecentSales] = useState<SaleItem[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [sales, setSales] = useState<SaleItem[]>([]);
   const [isNew, setIsNew] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  // İlk yükleme — son 5 satışı al
   useEffect(() => {
-    const fetchRecent = async () => {
-      const { data } = await supabase
-        .from('pixels')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
+    supabase
+      .from('pixels')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (data && data.length > 0) setSales(data.map(rowToSaleItem));
+      });
 
-      if (data && data.length > 0) {
-        setRecentSales(data.map(rowToSaleItem));
-      }
-    };
-
-    fetchRecent();
-
-    // Realtime: yeni pixel eklenince listeye ekle ve öne al
     const channel = supabase
-      .channel(`sales-feed-${Math.random()}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'pixels' },
-        (payload) => {
-          const newSale = rowToSaleItem(payload.new);
-          setRecentSales((prev) => [newSale, ...prev].slice(0, 5));
-          setCurrentIndex(0);
-          setIsNew(true);
-          // "YENİ" badge'i 5 sn sonra kaldır
-          setTimeout(() => setIsNew(false), 5000);
-        }
-      )
+      .channel(`sales-ticker-${Math.random()}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pixels' }, (payload) => {
+        const newSale = rowToSaleItem(payload.new);
+        setSales((prev) => [newSale, ...prev].slice(0, 10));
+        setIsNew(true);
+        setTimeout(() => setIsNew(false), 6000);
+      })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel).catch(() => {});
-    };
+    return () => { supabase.removeChannel(channel).catch(() => {}); };
   }, []);
 
-  // Birden fazla satış varsa 4 saniyede bir geç
-  useEffect(() => {
-    if (recentSales.length <= 1) return;
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % recentSales.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [recentSales.length]);
+  if (sales.length === 0) return null;
 
-  if (recentSales.length === 0) return null;
-
-  const sale = recentSales[currentIndex];
+  // İçeriği 2× kopyala → sorunsuz döngü
+  const items = [...sales, ...sales];
 
   return (
-    <div className="w-full bg-red-600 text-white py-1 px-3 text-sm overflow-hidden">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span
-            className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded flex-shrink-0 transition-all duration-300 ${
-              isNew && currentIndex === 0
-                ? 'bg-yellow-300 text-red-700 animate-pulse'
-                : 'bg-white text-red-600'
-            }`}
-          >
-            <Zap className="w-3 h-3" />
-            {isNew && currentIndex === 0 ? 'SON DAKİKA' : 'YENİ'}
-          </span>
+    <div className="w-full bg-red-600 text-white h-[22px] overflow-hidden flex items-center font-mono">
+      {/* Sol badge — sabit */}
+      <div className="flex-shrink-0 pl-2 pr-2 flex items-center">
+        <span
+          className={`flex items-center justify-center gap-1 text-[9px] leading-none font-bold px-1.5 py-0.5 rounded transition-all duration-300 ${
+            isNew
+              ? 'bg-yellow-300 text-red-700 animate-pulse'
+              : 'bg-white text-red-600'
+          }`}
+        >
+          <Zap className="w-2.5 h-2.5" />
+          {isNew ? 'SON DAKİKA' : 'SON SATIŞLAR'}
+        </span>
+      </div>
 
-          <a
-            href={sale.linkUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="truncate hover:underline decoration-dotted min-w-0"
-          >
-            <span className="font-bold">{sale.title || 'İsimsiz'}</span>
-            <span className="text-white/80 mx-2">•</span>
-            <span className="text-white/90 text-xs">
-              {sale.w * 10}x{sale.h * 10} px
+      {/* Kayan şerit */}
+      <div className="flex-1 overflow-hidden relative h-full flex items-center">
+        <div
+          ref={trackRef}
+          className="flex items-center gap-0 whitespace-nowrap h-full"
+          style={{ animation: 'ticker-scroll 30s linear infinite' }}
+        >
+          {items.map((sale, i) => (
+            <span key={`${sale.id}-${i}`} className="inline-flex items-center gap-2 px-6 h-full">
+              <a
+                href={sale.linkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold hover:underline decoration-dotted text-[11px] leading-none pb-[1px]"
+              >
+                {sale.title || 'İsimsiz'}
+              </a>
+              <span className="text-white/80 text-[10px] leading-none pb-[1px]">
+                {sale.w * 10}×{sale.h * 10}px
+              </span>
+              <span className="text-white/40 text-[9px] leading-none select-none">◆</span>
             </span>
-          </a>
-        </div>
-
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {/* Nokta indikatörleri — birden fazla satış varsa */}
-          {recentSales.length > 1 && (
-            <div className="hidden sm:flex gap-1">
-              {recentSales.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentIndex(i)}
-                  className={`w-1.5 h-1.5 rounded-full transition-all ${
-                    i === currentIndex ? 'bg-white' : 'bg-white/40'
-                  }`}
-                />
-              ))}
-            </div>
-          )}
-          <div className="text-white/70 text-xs">SON SATIŞ</div>
+          ))}
         </div>
       </div>
     </div>

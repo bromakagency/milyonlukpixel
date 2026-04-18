@@ -11,7 +11,7 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
 
   return (
     <header className="w-full border-b-2 md:border-b-4 border-black bg-white pt-12 md:pt-16 pb-6 md:pb-12 px-3 md:px-4 text-center relative z-10">
-      <div className="absolute top-0 left-0 w-full h-2 md:h-3 bg-red-600" />
+      {/* Removed the absolute red bar top because SalesFeed is directly above it */}
       
       <h1 className="font-display text-3xl md:text-7xl lg:text-8xl font-black uppercase tracking-tighter leading-none">
         {title}<br/>{subtitle}
