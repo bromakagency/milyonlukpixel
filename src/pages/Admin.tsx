@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminApi } from '../services/adminApi';
 import { api } from '../services/api';
@@ -14,6 +14,10 @@ import {
   Trash2,
   Eye,
   RefreshCw,
+  X,
+  ExternalLink,
+  MapPin,
+  Maximize2,
 } from 'lucide-react';
 
 type TabType = 'dashboard' | 'pixels';
@@ -25,7 +29,18 @@ export function Admin() {
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [previewPixel, setPreviewPixel] = useState<any | null>(null);
   const navigate = useNavigate();
+
+  const closePreview = useCallback(() => setPreviewPixel(null), []);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closePreview();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [closePreview]);
 
   useEffect(() => {
     checkAuth();
@@ -74,7 +89,7 @@ navigate('/ers-admin/login');
 
   const handleDeletePixel = async (id: string) => {
     if (!confirm('Bu pixeli silmek istediğinizden emin misiniz?')) return;
-    
+    setPreviewPixel(null);
     try {
       await api.deletePixel(id);
       await loadData();
@@ -91,6 +106,107 @@ navigate('/ers-admin/login');
     );
   }
 
+  /* ─── Pixel Preview Modal ─── */
+  const PixelPreviewModal = () => {
+    if (!previewPixel) return null;
+    const px = previewPixel;
+    const price = (px.w * px.h * 100).toLocaleString();
+    const coordX = px.x * 10;
+    const coordY = px.y * 10;
+    const sizeW = px.w * 10;
+    const sizeH = px.h * 10;
+    return (
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+        style={{ background: 'rgba(0,0,0,0.75)' }}
+        onClick={closePreview}
+      >
+        <div
+          className="bg-white border-4 border-black w-full max-w-lg relative"
+          style={{ boxShadow: '8px 8px 0 #000' }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b-2 border-black px-5 py-3 bg-black text-white">
+            <span className="font-display font-black text-lg uppercase tracking-tight">Pixel Önizleme</span>
+            <button onClick={closePreview} className="hover:text-red-400 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Image */}
+          <div className="relative border-b-2 border-black bg-[#f4f4f0]" style={{ height: 220 }}>
+            {px.imageUrl ? (
+              <img
+                src={px.imageUrl}
+                alt={px.title}
+                className="w-full h-full object-contain p-4"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                <Image className="w-12 h-12" />
+              </div>
+            )}
+            <span className="absolute top-2 right-2 bg-red-600 text-white font-mono text-xs font-bold px-2 py-1 border border-black">
+              ₺{price}
+            </span>
+          </div>
+
+          {/* Details */}
+          <div className="px-5 py-4 space-y-3">
+            <h2 className="font-display text-2xl font-black uppercase tracking-tighter leading-none">{px.title || '—'}</h2>
+
+            <div className="grid grid-cols-2 gap-3 font-mono text-sm">
+              <div className="flex items-center gap-2 border-2 border-black px-3 py-2 bg-[#ffd700]">
+                <MapPin className="w-4 h-4 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-black/60">Konum</p>
+                  <p className="font-bold">X:{coordX} Y:{coordY}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 border-2 border-black px-3 py-2">
+                <Maximize2 className="w-4 h-4 flex-shrink-0" />
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-gray-500">Boyut</p>
+                  <p className="font-bold">{sizeW}×{sizeH} px</p>
+                </div>
+              </div>
+            </div>
+
+            {px.linkUrl && (
+              <p className="text-xs font-mono text-gray-500 truncate border border-gray-200 px-2 py-1 bg-gray-50">
+                🔗 {px.linkUrl}
+              </p>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 px-5 pb-5">
+            {px.linkUrl && (
+              <a
+                href={px.linkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 bg-black text-white font-display font-bold py-3 border-2 border-black hover:bg-gray-800 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Siteyi Aç
+              </a>
+            )}
+            <button
+              onClick={() => handleDeletePixel(px.id)}
+              className="flex items-center justify-center gap-2 bg-red-600 text-white font-display font-bold px-4 py-3 border-2 border-black hover:bg-red-700 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Sil
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const tabNames: Record<TabType, string> = {
     dashboard: 'Dashboard',
     pixels: 'Pixeller',
@@ -98,6 +214,7 @@ navigate('/ers-admin/login');
 
   return (
     <div className="min-h-screen bg-[#f4f4f0] flex">
+      <PixelPreviewModal />
       {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-64 bg-black text-white transform transition-transform duration-200 ease-in-out
@@ -322,9 +439,9 @@ navigate('/ers-admin/login');
                       <td className="p-2">
                         <div className="flex gap-2">
                           <button
-                            onClick={() => window.open(pixel.linkUrl, '_blank')}
+                            onClick={() => setPreviewPixel(pixel)}
                             className="p-2 bg-blue-500 hover:bg-blue-600 text-white border-2 border-black brutal-shadow-sm transition-colors"
-                            title="Görüntüle"
+                            title="Önizle"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
