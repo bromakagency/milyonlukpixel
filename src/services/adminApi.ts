@@ -1,18 +1,6 @@
-import { db } from './supabase';
+import { db, supabase } from './supabase';
 import { adminService } from './adminService';
 import type { AdminInfo } from '../types';
-
-function getToken(): string | null {
-  return localStorage.getItem('adminToken');
-}
-
-function setToken(token: string): void {
-  localStorage.setItem('adminToken', token);
-}
-
-function removeToken(): void {
-  localStorage.removeItem('adminToken');
-}
 
 export interface ActivityLog {
   id: string;
@@ -26,41 +14,39 @@ export interface ActivityLog {
 }
 
 export const adminApi = {
-  async login(username: string, password: string): Promise<{ token: string }> {
-    const result = await adminService.login(username, password);
+  async login(email: string, password: string): Promise<{ token: string }> {
+    const result = await adminService.login(email, password);
     
     if ('error' in result) {
       throw new Error(result.error);
     }
     
-    setToken(result.token);
     return { token: result.token };
   },
 
   async logout(): Promise<void> {
-    removeToken();
+    await supabase.auth.signOut();
   },
 
   async getMe(): Promise<AdminInfo> {
-    const token = getToken();
-    if (!token) throw new Error('Token bulunamadı');
-    
-    const session = await adminService.getMe(token);
-    if (!session) throw new Error('Geçersiz token');
+    const session = await adminService.getMe();
+    if (!session) throw new Error('Geçersiz oturum');
     
     return {
       adminId: session.adminId,
-      username: session.username,
-      role: session.role,
+      username: session.email, // Geriye dönük uyumluluk için e-postayı username olarak veriyoruz
+      role: session.role as 'admin' | 'superadmin',
     };
   },
 
-  isAuthenticated(): boolean {
-    return !!getToken();
+  async isAuthenticated(): Promise<boolean> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return !!session;
   },
 
-  getToken(): string | null {
-    return getToken();
+  async getToken(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token || null;
   },
 };
 

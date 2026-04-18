@@ -39,8 +39,9 @@ export function Admin() {
 
   const checkAuth = async () => {
     try {
-      if (!adminApi.isAuthenticated()) {
-navigate('/ers-admin/login');
+      const authStatus = await adminApi.isAuthenticated();
+      if (!authStatus) {
+        navigate('/ers-admin/login');
         return;
       }
       const adminInfo = await adminApi.getMe();

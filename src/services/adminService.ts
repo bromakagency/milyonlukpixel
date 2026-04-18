@@ -1,59 +1,46 @@
-import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://dqkwiyoqibutvpaeyeax.supabase.co';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxa3dpeW9xaWJ1dHZwYWV5ZWF4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE3Mjg0MCwiZXhwIjoyMDkxNzQ4ODQwfQ.GHU935nW3KBKglsvpTY79Ua_L1oq3ubsuUPoy8aje8I';
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+import { supabase } from './supabase';
 
 export interface AdminSession {
   adminId: string;
-  username: string;
+  email: string;
   role: string;
 }
 
 export const adminService = {
-  async login(username: string, password: string): Promise<{ token: string } | { error: string }> {
-    const { data, error } = await supabase
-      .from('admins')
-      .select('*')
-      .eq('username', username)
-      .single();
+  async login(email: string, password: string): Promise<{ token: string } | { error: string }> {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     
-    if (error || !data) {
-      await this.logActivity('LOGIN_FAILED', `Giriş denemesi: ${username}`, null, null);
-      return { error: 'Geçersiz kullanıcı adı veya şifre' };
+    if (error || !data.session) {
+      await this.logActivity('LOGIN_FAILED', `Giriş denemesi: ${email}`, null, null);
+      return { error: 'Geçersiz e-posta veya şifre' };
     }
-    
-    if (data.password_hash !== password) {
-      await this.logActivity('LOGIN_FAILED', `Yanlış şifre: ${username}`, null, null);
-      return { error: 'Geçersiz kullanıcı adı veya şifre' };
-    }
-    
-    await supabase
-      .from('admins')
-      .update({ last_login: new Date().toISOString() })
-      .eq('id', data.id);
     
     const session: AdminSession = {
-      adminId: data.id,
-      username: data.username,
-      role: data.role
+      adminId: data.user.id,
+      email: data.user.email || '',
+      role: 'superadmin'
     };
     
-    const token = btoa(JSON.stringify(session));
+    // Auth işlemini Supabase SDK devralıyor, sadece geriye dönük uyumluluk için bir token objesi dönüyoruz.
+    const token = data.session.access_token;
     
-    await this.logActivity('LOGIN_SUCCESS', `Giriş başarılı: ${username}`, data.id, data.username);
+    await this.logActivity('LOGIN_SUCCESS', `Giriş başarılı: ${email}`, data.user.id, email);
     
     return { token };
   },
 
-  async getMe(token: string): Promise<AdminSession | null> {
-    try {
-      const session = JSON.parse(atob(token));
-      return session;
-    } catch {
-      return null;
-    }
+  async getMe(): Promise<AdminSession | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+
+    return {
+      adminId: session.user.id,
+      email: session.user.email || '',
+      role: 'superadmin'
+    };
   },
 
   async logActivity(action: string, description: string, adminId: string | null, adminUsername: string | null): Promise<void> {
@@ -72,11 +59,3 @@ export const adminService = {
     }
   }
 };
-
-export function getAdminFromToken(token: string): AdminSession | null {
-  try {
-    return JSON.parse(atob(token));
-  } catch {
-    return null;
-  }
-}

@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://dqkwiyoqibutvpaeyeax.supabase.co';
-const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxa3dpeW9xaWJ1dHZwYWV5ZWF4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjE3Mjg0MCwiZXhwIjoyMDkxNzQ4ODQwfQ.GHU935nW3KBKglsvpTY79Ua_L1oq3ubsuUPoy8aje8I';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxa3dpeW9xaWJ1dHZwYWV5ZWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzI4NDAsImV4cCI6MjA5MTc0ODg0MH0.oUvqja5D1TSoJ-wylqPEW4QuaHQdai7oEjp82lWWfE8';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export interface Pixel {
   id: string;

@@ -4,7 +4,7 @@ import { adminApi } from '../services/adminApi';
 import { Lock, User, AlertCircle } from 'lucide-react';
 
 export function AdminLogin() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -16,7 +16,7 @@ export function AdminLogin() {
     setIsLoading(true);
 
     try {
-      await adminApi.login(username, password);
+      await adminApi.login(email, password);
       navigate('/ers-admin');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Giriş başarısız');
@@ -48,17 +48,17 @@ export function AdminLogin() {
 
             <div>
               <label className="block font-mono text-xs font-bold uppercase mb-2">
-                Kullanıcı Adı
+                E-Posta
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   className="w-full border-2 border-black p-3 pl-10 font-mono focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm"
-                  placeholder="admin"
+                  placeholder="admin@milyonlukpiksel.com"
                 />
               </div>
             </div>
