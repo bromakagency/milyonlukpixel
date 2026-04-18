@@ -56,7 +56,7 @@ export function PixelProvider({ children }: { children: ReactNode }) {
     fetchPixels();
 
     const channel = supabase
-      .channel('pixels-realtime')
+      .channel(`pixels-realtime-${Math.random()}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'pixels' },
@@ -94,7 +94,7 @@ export function PixelProvider({ children }: { children: ReactNode }) {
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(channel).catch(() => {});
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // ────────────────────────────────────────────────────────────────────────

@@ -51,7 +51,7 @@ export function SalesFeed() {
 
     // Realtime: yeni pixel eklenince listeye ekle ve öne al
     const channel = supabase
-      .channel('sales-feed-realtime')
+      .channel(`sales-feed-${Math.random()}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'pixels' },
@@ -67,7 +67,7 @@ export function SalesFeed() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(channel).catch(() => {});
     };
   }, []);
 
