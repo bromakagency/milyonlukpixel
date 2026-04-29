@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /ers-admin
+Disallow: /ers-admin/
+
+Sitemap: https://milyonlukpiksel.com/sitemap.xml
