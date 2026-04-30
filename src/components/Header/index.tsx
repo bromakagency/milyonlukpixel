@@ -15,17 +15,49 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
   const soldPixelsFormatted = formatNumber(stats.soldPixels);
   const availablePixelsFormatted = formatNumber(stats.availablePixels);
 
-  // Canlı, inandırıcı bir "Şu an x kişi bakıyor" simülasyonu (FOMO)
-  const [liveUsers, setLiveUsers] = useState(4);
+  // Sunucu bazlı gerçek + FOMO ziyaretçi takibi (Polling)
+  const [liveUsers, setLiveUsers] = useState(2);
+  
   useEffect(() => {
-    setLiveUsers(Math.floor(Math.random() * 8) + 3); // 3 ile 10 arası başla
-    const interval = setInterval(() => {
-      setLiveUsers(prev => {
-        const change = Math.random() > 0.5 ? 1 : -1;
-        return Math.max(2, Math.min(18, prev + change)); // 2 ile 18 arasında dalgalansın
-      });
-    }, 12000); // 12 saniyede bir hafifçe değişsin
-    return () => clearInterval(interval);
+    let visitorId = localStorage.getItem('pixel_visitor_id');
+    if (!visitorId) {
+      visitorId = Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('pixel_visitor_id', visitorId);
+    }
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+    const sendHeartbeat = () => {
+      fetch(`${API_URL}/api/heartbeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitorId }),
+      }).catch(() => {});
+    };
+
+    const fetchLiveCount = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/live-count`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data.count === 'number') {
+            setLiveUsers(data.count);
+          }
+        }
+      } catch (error) {
+        // sessizce geç
+      }
+    };
+
+    sendHeartbeat();
+    fetchLiveCount();
+
+    const heartbeatInterval = setInterval(sendHeartbeat, 30000);
+    const countInterval = setInterval(fetchLiveCount, 30000);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      clearInterval(countInterval);
+    };
   }, []);
 
   return (
@@ -68,7 +100,7 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
               <p className="text-sm leading-5 text-gray-600">
                 Son 24 saatte <strong className="text-red-600">{recentBlocksSold24h}</strong> blok satıldı
                 <br />
-                Şu an <strong className="text-red-600">{liveUsers}</strong> kişi alan satın almayı inceliyor
+                Şu an <strong className="text-red-600">{liveUsers}</strong> kişi alanları inceliyor
               </p>
             </div>
           </div>

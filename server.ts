@@ -41,6 +41,32 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// ── Canlı Ziyaretçi Takibi (In-memory Cache) ─────────────────────────
+const activeVisitors = new Map<string, number>();
+
+app.post('/api/heartbeat', (req, res) => {
+  const visitorId = req.body.visitorId || req.ip;
+  if (visitorId) {
+    activeVisitors.set(visitorId as string, Date.now());
+  }
+  res.sendStatus(200);
+});
+
+app.get('/api/live-count', (req, res) => {
+  const now = Date.now();
+  let count = 0;
+  for (const [id, time] of activeVisitors.entries()) {
+    // 2 dakikadan (120000ms) eski ziyaretçileri temizle
+    if (now - time > 120000) {
+      activeVisitors.delete(id);
+    } else {
+      count++;
+    }
+  }
+  // Kullanıcının belirttiği gibi FOMO etkisi (aktif sayı + 2)
+  res.json({ count: count + 2 });
+});
+
 // Admin login (Supabase Auth üzerinden)
 app.post('/api/admin/login', async (req, res) => {
   try {
