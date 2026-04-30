@@ -82,15 +82,34 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   const [paymentToken, setPaymentToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // When paymentToken is set, we need to initialize the iframe resizer
+  // PayTR iframe resizer - script yüklenmesini ve DOM'u bekleyerek başlat
   useEffect(() => {
-    if (paymentToken && typeof (window as any).paytrInitIframe === 'function') {
-      // Give it a small delay for iframe to render
-      setTimeout(() => {
-        (window as any).paytrInitIframe();
-      }, 500);
-    }
+    if (!paymentToken) return;
+
+    let attempts = 0;
+    const maxAttempts = 40; // 4 saniye (100ms x 40)
+
+    const init = () => {
+      const iframeEl = document.getElementById('paytriframe');
+      const resizerReady = typeof (window as any).iFrameResize === 'function';
+
+      if (iframeEl && resizerReady) {
+        (window as any).iFrameResize({}, '#paytriframe');
+        return;
+      }
+
+      attempts++;
+      if (attempts < maxAttempts) {
+        setTimeout(init, 100);
+      } else {
+        console.warn('PayTR iFrame resizer başlatılamadı.');
+      }
+    };
+
+    // İlk denemeden önce iframe’ın render olması için kısa bir bekleme
+    setTimeout(init, 200);
   }, [paymentToken]);
+
 
   if (!isOpen || !selectedCoords) return null;
 
