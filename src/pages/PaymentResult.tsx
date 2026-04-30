@@ -29,15 +29,17 @@ export function PaymentResult() {
 
   useEffect(() => {
     if (userLogo) {
-      // R2 CDN URL'leri için sunucu proxy'si kullan (CORS bypass)
-      // Kendi sitemizden gelen URL'ler için direkt fetch yeterli
-      const isR2Url = userLogo.includes('cdn.milyonlukpiksel.com');
-      const fetchUrl = isR2Url
+      // Tüm absolute URL'leri proxy'den geçir (lokal ortamda CORS hatası almamak için)
+      const isAbsolute = userLogo.startsWith('http');
+      const fetchUrl = isAbsolute
         ? `/api/proxy-image?url=${encodeURIComponent(userLogo)}`
         : userLogo;
 
       fetch(fetchUrl)
-        .then(res => res.blob())
+        .then(res => {
+          if (!res.ok) throw new Error('Proxy fetch failed');
+          return res.blob();
+        })
         .then(blob => {
           const reader = new FileReader();
           reader.onloadend = () => {

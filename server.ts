@@ -479,9 +479,12 @@ app.get('/api/proxy-image', async (req, res) => {
     return res.status(400).json({ error: 'URL parametresi gerekli' });
   }
 
-  // Sadece kendi CDN'imizden gelen URL'lere izin ver (güvenlik)
+  // Sadece kendi domainlerimizden gelen URL'lere izin ver (güvenlik)
   const allowedDomain = process.env.R2_PUBLIC_URL || 'cdn.milyonlukpiksel.com';
-  if (!imageUrl.startsWith('https://cdn.milyonlukpiksel.com') && !imageUrl.startsWith(allowedDomain)) {
+  if (!imageUrl.startsWith('https://cdn.milyonlukpiksel.com') && 
+      !imageUrl.startsWith('https://www.milyonlukpiksel.com') &&
+      !imageUrl.startsWith('https://milyonlukpiksel.com') &&
+      !imageUrl.startsWith(allowedDomain)) {
     return res.status(403).json({ error: 'Bu domain için proxy kullanılamaz' });
   }
 
