@@ -17,7 +17,9 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('CRITICAL: Supabase URL veya Anon Key bulunamadı!');
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) 
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null as any;
 
 export interface Pixel {
   id: string;
