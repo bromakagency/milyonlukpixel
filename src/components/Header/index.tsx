@@ -15,6 +15,8 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
   const soldPixelsFormatted = formatNumber(stats.soldPixels);
   const availablePixelsFormatted = formatNumber(stats.availablePixels);
 
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+
   // Sunucu bazlı gerçek + FOMO ziyaretçi takibi (Polling)
   const [liveUsers, setLiveUsers] = useState(() => {
     const cached = localStorage.getItem('pixel_live_users');
@@ -92,6 +94,12 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
                 Piksel Satın Al
                 <ArrowRight className="h-4 w-4" />
               </a>
+              <button
+                onClick={() => setIsGuideOpen(true)}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-[8px] border-2 border-black bg-white px-5 text-sm font-extrabold uppercase text-black transition-transform hover:-translate-y-0.5 shadow-sm hover:shadow-md"
+              >
+                Nasıl Kullanılır?
+              </button>
             </div>
 
             <div className="mt-8 flex items-center gap-4">
@@ -206,6 +214,53 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
           </div>
         </div>
       </div>
+
+      {/* Nasıl Kullanılır Modal */}
+      {isGuideOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-white border-2 md:border-4 border-black brutal-shadow-lg flex flex-col max-h-[90vh]">
+            <div className="bg-black text-white p-3 md:p-4 flex justify-between items-center shrink-0">
+              <h2 className="font-display font-bold text-lg md:text-xl uppercase tracking-wider">Nasıl Kullanılır?</h2>
+              <button onClick={() => setIsGuideOpen(false)} className="hover:text-red-500 font-mono text-xl font-bold transition-colors">[X]</button>
+            </div>
+            <div className="p-4 md:p-6 overflow-y-auto space-y-6 bg-[#f4f4f0]">
+              
+              <div className="flex gap-3 md:gap-4 items-start">
+                <div className="shrink-0 w-8 h-8 bg-red-600 text-white font-bold font-mono flex items-center justify-center border-2 border-black brutal-shadow-sm">1</div>
+                <div>
+                  <h3 className="font-bold uppercase text-black mb-1 text-sm md:text-base">Alanını Seç</h3>
+                  <p className="text-gray-700 text-xs md:text-sm">Piksel duvarında istediğin konumu seç ve alanının boyutunu belirle. 1 blok = 10×10 piksel</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 md:gap-4 items-start">
+                <div className="shrink-0 w-8 h-8 bg-red-600 text-white font-bold font-mono flex items-center justify-center border-2 border-black brutal-shadow-sm">2</div>
+                <div>
+                  <h3 className="font-bold uppercase text-black mb-1 text-sm md:text-base">Logonu Yükle</h3>
+                  <p className="text-gray-700 text-xs md:text-sm">Markanın logosunu yükle veya görsel URL’ni ekle. Logon seçtiğin alana otomatik olarak yerleştirilir.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 md:gap-4 items-start">
+                <div className="shrink-0 w-8 h-8 bg-red-600 text-white font-bold font-mono flex items-center justify-center border-2 border-black brutal-shadow-sm">3</div>
+                <div>
+                  <h3 className="font-bold uppercase text-black mb-1 text-sm md:text-base">Bilgilerini Gir</h3>
+                  <p className="text-gray-700 text-xs md:text-sm">Logona tıklandığında açılacak bağlantıyı ekle. İstersen marka adını veya kısa sloganını da yaz.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 md:gap-4 items-start">
+                <div className="shrink-0 w-8 h-8 bg-red-600 text-white font-bold font-mono flex items-center justify-center border-2 border-black brutal-shadow-sm">4</div>
+                <div>
+                  <h3 className="font-bold uppercase text-black mb-1 text-sm md:text-base">Sonsuza Kadar Kal</h3>
+                  <p className="text-gray-700 text-xs md:text-sm">İşlemi tamamla, piksel alanın dijital duvarda kalıcı olarak yerini alsın.</p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
