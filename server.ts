@@ -358,40 +358,34 @@ app.post('/api/payment/paytr-token', async (req, res) => {
       return res.status(400).json({ error: 'Piksel kaydedilemedi. Zaten alınmış olabilir.' });
     }
 
-    // PayTR Link Oluşturma API (Basic API / Link Çözümü için)
-    const name = `Milyonluk Piksel Alanı (${w*10}x${h*10})`;
-    const price = (w * h * 100); // TL cinsinden
-    const link_type = 'product';
-    const lang = 'tr';
-    const min_count = '1';
-    const max_count = '1';
-    const get_qr = '0';
-    const required_name = '1';
-    const required_address = '0';
-    const required_phone = '1';
+    // PayTR Iframe API (Pro)
+    // payment_amount zaten yukarıda tanımlanmış
 
-    // Link API Hash
-    const hash_str = merchant_id + name + price + currency + max_installment + link_type + lang + min_count + max_count + merchant_salt;
-    const paytr_token = crypto.createHmac('sha256', merchant_key).update(hash_str).digest('base64');
+    // Token Hash
+    const hash_str = `${merchant_id}${user_ip}${merchant_oid}${user_email}${payment_amount}${user_basket}${no_installment}${max_installment}${currency}${test_mode}`;
+    const paytr_token = crypto.createHmac('sha256', merchant_key).update(hash_str + merchant_salt).digest('base64');
 
     const params = new URLSearchParams();
     params.append('merchant_id', merchant_id);
-    params.append('name', name);
-    params.append('price', price.toString());
-    params.append('currency', currency);
-    params.append('max_installment', max_installment);
-    params.append('link_type', link_type);
-    params.append('lang', lang);
-    params.append('min_count', min_count);
-    params.append('max_count', max_count);
-    params.append('get_qr', get_qr);
-    params.append('required_name', required_name);
-    params.append('required_address', required_address);
-    params.append('required_phone', required_phone);
+    params.append('user_ip', user_ip as string);
     params.append('merchant_oid', merchant_oid);
+    params.append('email', user_email);
+    params.append('payment_amount', payment_amount.toString());
     params.append('paytr_token', paytr_token);
+    params.append('user_basket', user_basket);
+    params.append('debug_on', debug_on);
+    params.append('no_installment', no_installment);
+    params.append('max_installment', max_installment);
+    params.append('user_name', user_name);
+    params.append('user_address', user_address);
+    params.append('user_phone', user_phone);
+    params.append('merchant_ok_url', merchant_ok_url);
+    params.append('merchant_fail_url', merchant_fail_url);
+    params.append('timeout_limit', timeout_limit);
+    params.append('currency', currency);
+    params.append('test_mode', test_mode);
 
-    const response = await fetch('https://www.paytr.com/odeme/api/link/create', {
+    const response = await fetch('https://www.paytr.com/odeme/api/get-token', {
       method: 'POST',
       body: params,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
@@ -400,22 +394,11 @@ app.post('/api/payment/paytr-token', async (req, res) => {
     const result = await response.json();
     
     if (result.status === 'success') {
-      // Pikseli bekliyor olarak kaydet
-      await supabase.from('pixels').insert({
-        x, y, w, h,
-        image_url: imageUrl,
-        link_url: linkUrl,
-        title,
-        status: 'pending',
-        merchant_oid,
-        user_email,
-        price: w * h * 100
-      });
-
-      res.json({ status: 'success', link: result.link });
+      res.json({ token: result.token, oid: merchant_oid });
     } else {
-      console.error('PayTR Link Error:', result);
-      res.status(500).json({ error: result.reason || 'Ödeme linki oluşturulamadı' });
+      console.error('PayTR Token Error:', result);
+      await supabase.from('pixels').delete().eq('merchant_oid', merchant_oid);
+      res.status(500).json({ error: result.reason || 'Ödeme sistemi başlatılamadı' });
     }
   } catch (error) {
     console.error('PayTR API Hatası:', error);

@@ -103,12 +103,13 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
     setLoading(true);
     try {
-      // Start payment process and get PayTR payment link
+      // Start payment process and get PayTR token
       const res = await api.initPayment(data);
       
-      if (res.link) {
-        // Redirect to PayTR payment page
-        window.location.href = res.link;
+      if (res.token) {
+        setPaymentToken(res.token);
+      } else {
+        setError('Ödeme tokenı alınamadı.');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ödeme başlatılamadı');
