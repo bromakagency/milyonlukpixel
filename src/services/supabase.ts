@@ -1,12 +1,22 @@
 /// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
 
-// Hem Vite (tarayıcı) hem de Node.js ortamında çalışması için kontrol ekliyoruz
-const SUPABASE_URL = (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_SUPABASE_URL : process.env.VITE_SUPABASE_URL) as string;
-const SUPABASE_ANON_KEY = (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_SUPABASE_ANON_KEY : process.env.VITE_SUPABASE_ANON_KEY) as string;
+// Güvenli ortam değişkeni okuma fonksiyonu
+const getEnv = (key: string) => {
+  if (typeof import.meta.env !== 'undefined' && import.meta.env[key]) {
+    return import.meta.env[key];
+  }
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    return process.env[key];
+  }
+  return '';
+};
+
+const SUPABASE_URL = getEnv('VITE_SUPABASE_URL');
+const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY');
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('Supabase URL veya Anon Key bulunamadı! Lütfen .env dosyasını kontrol edin.');
+  console.error('CRITICAL: Supabase URL veya Anon Key bulunamadı! Ortam değişkenlerini (Environment Variables) kontrol edin.');
 }
 
 export const supabase = createClient(SUPABASE_URL || '', SUPABASE_ANON_KEY || '');

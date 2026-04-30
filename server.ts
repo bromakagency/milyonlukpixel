@@ -4,7 +4,6 @@ import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
-import { adminService } from './src/services/adminService.js';
 import { db } from './src/services/supabase.js';
 import { emailService } from './server/services/emailService.js';
 
@@ -38,52 +37,66 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Admin login
+// Admin login (Supabase Auth üzerinden)
 app.post('/api/admin/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
     
-    if (!username || !password) {
-      res.status(400).json({ error: 'Kullanıcı adı ve şifre gerekli' });
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) {
+      res.status(500).json({ error: 'Supabase ayarları eksik' });
       return;
     }
-    
-    const result = await adminService.login(username, password);
-    
-    if ('error' in result) {
-      res.status(401).json({ error: result.error });
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      res.status(401).json({ error: error.message });
       return;
     }
-    
-    res.json({ success: true, token: result.token });
+
+    res.json({
+      token: data.session?.access_token,
+      admin: {
+        id: data.user?.id,
+        email: data.user?.email,
+      }
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });
 
-// Get admin info
+// Get admin info (Supabase Auth üzerinden)
 app.get('/api/admin/me', async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = getBearerToken(req);
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!token) {
       res.status(401).json({ error: 'Token gerekli' });
       return;
     }
     
-    const token = authHeader.split(' ')[1];
-    const session = await adminService.getMe(token);
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) {
+      res.status(500).json({ error: 'Supabase ayarları eksik' });
+      return;
+    }
+
+    const { data: { user }, error } = await supabase.auth.getUser(token);
     
-    if (!session) {
+    if (error || !user) {
       res.status(401).json({ error: 'Geçersiz token' });
       return;
     }
     
     res.json({
-      adminId: session.adminId,
-      username: session.username,
-      role: session.role,
+      adminId: user.id,
+      email: user.email,
     });
   } catch (error) {
     res.status(500).json({ error: 'Sunucu hatası' });
@@ -102,11 +115,14 @@ app.post('/api/pixels', async (req, res) => {
       title,
     });
     
-    await adminService.logActivity(
-      'PIXEL_CREATE',
-      `Pixel eklendi: ${title}`,
-      null, null
-    );
+    // Activity log (best effort)
+    try {
+      const logService = getSupabaseServiceClient();
+      await logService?.from('activity_logs').insert({
+        action: 'PIXEL_CREATE',
+        description: `Pixel eklendi: ${title}`,
+      });
+    } catch (_) {}
     
     // Send email notification to admin
     emailService.sendNewPixelNotification({
@@ -174,11 +190,14 @@ app.delete('/api/pixels/:id', async (req, res) => {
       return;
     }
     
-    await adminService.logActivity(
-      'PIXEL_DELETE',
-      `Pixel silindi: ${id}`,
-      null, null
-    );
+    // Activity log (best effort)
+    try {
+      const logService = getSupabaseServiceClient();
+      await logService?.from('activity_logs').insert({
+        action: 'PIXEL_DELETE',
+        description: `Pixel silindi: ${id}`,
+      });
+    } catch (_) {}
     
     res.status(204).send();
   } catch (error) {
@@ -196,6 +215,9 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// Sunucuyu dışa aktar (Vercel için gerekli)
+export default app;
+
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -203,17 +225,14 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://localhost:${PORT}`);
     });
   }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
 }
 
-startServer();
+// Sadece Vercel dışında manuel başlatıldığında çalıştır
+if (process.env.NODE_ENV !== 'production') {
+  startServer();
+}
