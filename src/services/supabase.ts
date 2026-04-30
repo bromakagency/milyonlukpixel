@@ -1,25 +1,23 @@
 /// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
 
-// Güvenli ortam değişkeni okuma fonksiyonu
-const getEnv = (key: string) => {
-  if (typeof import.meta.env !== 'undefined' && import.meta.env[key]) {
-    return import.meta.env[key];
-  }
-  if (typeof process !== 'undefined' && process.env && process.env[key]) {
-    return process.env[key];
-  }
-  return '';
-};
+// Vite üretim modunda dinamik erişime (import.meta.env[key]) izin vermez.
+// Bu yüzden değişkenleri açıkça yazmalıyız.
+const SUPABASE_URL = 
+  (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_SUPABASE_URL : '') || 
+  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '') || 
+  '';
 
-const SUPABASE_URL = getEnv('VITE_SUPABASE_URL');
-const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY');
+const SUPABASE_ANON_KEY = 
+  (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_SUPABASE_ANON_KEY : '') || 
+  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '') || 
+  '';
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('CRITICAL: Supabase URL veya Anon Key bulunamadı! Ortam değişkenlerini (Environment Variables) kontrol edin.');
+  console.error('CRITICAL: Supabase URL veya Anon Key bulunamadı!');
 }
 
-export const supabase = createClient(SUPABASE_URL || '', SUPABASE_ANON_KEY || '');
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export interface Pixel {
   id: string;
