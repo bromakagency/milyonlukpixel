@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { createServer as createViteServer } from 'vite';
+// Vite'ı top-level import YAPMIYORUZ! (Vercel Serverless ortamını çökertiyor)
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { db } from './src/services/supabase.js';
@@ -174,10 +174,11 @@ app.delete('/api/pixels/:id', async (req, res) => {
     // Verify Supabase JWT before allowing destructive operations.
     const { data: userData, error: userError } = await service.auth.getUser(token);
     if (userError || !userData?.user) {
-      res.status(401).json({ error: 'Geçersiz oturum' });
+      res.status(401).json({ error: 'Geçersiz oturum', details: userError?.message });
       return;
     }
 
+    // Silme işlemini service_role client'ı ile yap
     const { data: deletedRows, error: deleteError } = await service
       .from('pixels')
       .delete()
@@ -185,19 +186,19 @@ app.delete('/api/pixels/:id', async (req, res) => {
       .select('id');
 
     if (deleteError) {
-      res.status(400).json({ error: deleteError.message || 'Silme başarısız' });
+      console.error('DATABASE DELETE ERROR:', deleteError);
+      res.status(400).json({ error: 'Veritabanı silme hatası', details: deleteError.message });
       return;
     }
 
     if (!deletedRows || deletedRows.length === 0) {
-      res.status(404).json({ error: 'Pixel bulunamadı' });
+      res.status(404).json({ error: 'Pixel bulunamadı (Zaten silinmiş olabilir)' });
       return;
     }
     
     // Activity log (best effort)
     try {
-      const logService = getSupabaseServiceClient();
-      await logService?.from('activity_logs').insert({
+      await service.from('activity_logs').insert({
         action: 'PIXEL_DELETE',
         description: `Pixel silindi: ${id}`,
       });
@@ -229,15 +230,21 @@ export default app;
 // Yerel geliştirme için (Vercel dışında çalışırken)
 if (process.env.NODE_ENV !== 'production') {
   async function startServer() {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-    
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
+    try {
+      // Sadece lokalde Vite'ı dinamik olarak yüklüyoruz
+      const { createServer } = await import('vite');
+      const vite = await createServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+      
+      app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+      });
+    } catch (error) {
+      console.error('Vite başlatılamadı:', error);
+    }
   }
   startServer();
 }
