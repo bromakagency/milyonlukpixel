@@ -44,6 +44,19 @@ export const api = {
     return pixels.map(toPixelBlock);
   },
 
+  async initPayment(data: PixelFormData & { email?: string }): Promise<any> {
+    const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+    const res = await fetch(`${API_URL}/api/payment/paytr-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Ödeme başlatılamadı');
+    return json;
+  },
+
   async createPixel(data: PixelFormData): Promise<PixelBlock> {
     const pixel = await db.pixels.create({
       x: data.x,

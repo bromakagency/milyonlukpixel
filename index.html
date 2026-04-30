@@ -51,6 +51,14 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script src="https://www.paytr.com/js/iframeResizer.min.js"></script>
+    <script>
+      window.paytrInitIframe = function() {
+        if(typeof iFrameResize === 'function') {
+           iFrameResize({}, '#paytriframe');
+        }
+      }
+    </script>
   </body>
 </html>
 

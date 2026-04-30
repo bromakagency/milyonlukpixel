@@ -3,6 +3,7 @@ import { PixelProvider } from './context/PixelContext';
 import { Home } from './pages/Home';
 import { Admin } from './pages/Admin';
 import { AdminLogin } from './pages/AdminLogin';
+import { PaymentResult } from './pages/PaymentResult';
 
 export default function App() {
   return (
@@ -10,6 +11,8 @@ export default function App() {
       <PixelProvider>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/basarili" element={<PaymentResult />} />
+          <Route path="/hata" element={<PaymentResult />} />
           <Route path="/ers-admin/login" element={<AdminLogin />} />
           <Route path="/ers-admin" element={<Admin />} />
         </Routes>

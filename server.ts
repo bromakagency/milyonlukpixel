@@ -7,6 +7,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
 import { db } from './src/services/supabase.js';
 import { emailService } from './server/services/emailService.js';
+import crypto from 'crypto';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -60,6 +61,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // ── Canlı Ziyaretçi Takibi (In-memory Cache) ─────────────────────────
 const activeVisitors = new Map<string, number>();
@@ -296,6 +298,191 @@ app.get('/api/stats', async (req, res) => {
     res.json(stats);
   } catch (error) {
     res.status(500).json({ error: 'İstatistikler yüklenemedi' });
+  }
+});
+
+// ── PayTR Ödeme Entegrasyonu ──────────────────────────────────────────────────
+app.post('/api/payment/paytr-token', async (req, res) => {
+  try {
+    const { x, y, w, h, imageUrl, linkUrl, title, email } = req.body;
+    
+    // Validate
+    if (!w || !h || !imageUrl) return res.status(400).json({ error: 'Eksik veri' });
+
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) return res.status(500).json({ error: 'Supabase servisi yok' });
+
+    const merchant_id = process.env.PAYTR_MERCHANT_ID;
+    const merchant_key = process.env.PAYTR_MERCHANT_KEY;
+    const merchant_salt = process.env.PAYTR_MERCHANT_SALT;
+
+    if (!merchant_id || !merchant_key || !merchant_salt) {
+      return res.status(500).json({ error: 'PayTR bilgileri eksik' });
+    }
+
+    const payment_amount = (w * h * 100) * 100; // 1 blok = 100TL = 10000 kuruş
+    const merchant_oid = 'MP' + Date.now() + Math.floor(Math.random() * 1000);
+    const user_ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '1.1.1.1';
+    
+    const user_email = email || 'customer@milyonlukpiksel.com';
+    const user_name = title || 'Müşteri';
+    const user_address = 'Türkiye';
+    const user_phone = '05555555555';
+    const merchant_ok_url = process.env.PAYTR_MERCHANT_OK_URL || 'http://localhost:5173/basarili';
+    const merchant_fail_url = process.env.PAYTR_MERCHANT_FAIL_URL || 'http://localhost:5173/hata';
+    const user_basket = Buffer.from(JSON.stringify([
+      [`Milyonluk Piksel Alanı (${w*10}x${h*10})`, (w*h*100).toString(), 1]
+    ])).toString('base64');
+    
+    const timeout_limit = '30';
+    const debug_on = '1'; 
+    const test_mode = '1'; 
+    const no_installment = '0';
+    const max_installment = '0';
+    const currency = 'TL';
+
+    // DB'ye bekliyor (pending) durumunda kaydet
+    const { data: pixel, error: dbError } = await supabase.from('pixels').insert({
+      x, y, w, h,
+      image_url: imageUrl,
+      link_url: linkUrl,
+      title,
+      status: 'pending',
+      merchant_oid,
+      user_email,
+      price: w * h * 100
+    }).select().single();
+
+    if (dbError) {
+      console.error('DB Insert Error:', dbError);
+      return res.status(400).json({ error: 'Piksel kaydedilemedi. Zaten alınmış olabilir.' });
+    }
+
+    // PayTR Link Oluşturma API (Basic API / Link Çözümü için)
+    const name = `Milyonluk Piksel Alanı (${w*10}x${h*10})`;
+    const price = (w * h * 100); // TL cinsinden
+    const link_type = 'product';
+    const lang = 'tr';
+    const min_count = '1';
+    const max_count = '1';
+    const get_qr = '0';
+    const required_name = '1';
+    const required_address = '0';
+    const required_phone = '1';
+
+    // Link API Hash
+    const hash_str = merchant_id + name + price + currency + max_installment + link_type + lang + min_count + max_count + merchant_salt;
+    const paytr_token = crypto.createHmac('sha256', merchant_key).update(hash_str).digest('base64');
+
+    const params = new URLSearchParams();
+    params.append('merchant_id', merchant_id);
+    params.append('name', name);
+    params.append('price', price.toString());
+    params.append('currency', currency);
+    params.append('max_installment', max_installment);
+    params.append('link_type', link_type);
+    params.append('lang', lang);
+    params.append('min_count', min_count);
+    params.append('max_count', max_count);
+    params.append('get_qr', get_qr);
+    params.append('required_name', required_name);
+    params.append('required_address', required_address);
+    params.append('required_phone', required_phone);
+    params.append('merchant_oid', merchant_oid);
+    params.append('paytr_token', paytr_token);
+
+    const response = await fetch('https://www.paytr.com/odeme/api/link/create', {
+      method: 'POST',
+      body: params,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      // Pikseli bekliyor olarak kaydet
+      await supabase.from('pixels').insert({
+        x, y, w, h,
+        image_url: imageUrl,
+        link_url: linkUrl,
+        title,
+        status: 'pending',
+        merchant_oid,
+        user_email,
+        price: w * h * 100
+      });
+
+      res.json({ status: 'success', link: result.link });
+    } else {
+      console.error('PayTR Link Error:', result);
+      res.status(500).json({ error: result.reason || 'Ödeme linki oluşturulamadı' });
+    }
+  } catch (error) {
+    console.error('PayTR API Hatası:', error);
+    res.status(500).json({ error: 'Bir hata oluştu' });
+  }
+});
+
+// PayTR Callback (Webhook)
+app.post('/api/payment/paytr-callback', async (req, res) => {
+  try {
+    const {
+      merchant_oid, status, total_amount, hash,
+      failed_reason_code, failed_reason_msg, test_mode
+    } = req.body;
+
+    const merchant_key = process.env.PAYTR_MERCHANT_KEY || '';
+    const merchant_salt = process.env.PAYTR_MERCHANT_SALT || '';
+
+    const hash_str = merchant_oid + merchant_salt + status + total_amount;
+    const generated_hash = crypto.createHmac('sha256', merchant_key).update(hash_str).digest('base64');
+
+    if (hash !== generated_hash) {
+      console.error('PAYTR HASH MISMATCH:', merchant_oid);
+      return res.status(400).send('PAYTR notification failed: bad hash');
+    }
+
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) return res.status(500).send('DB Error');
+
+    if (status === 'success') {
+      // Payment Successful
+      await supabase.from('pixels')
+        .update({ status: 'approved' })
+        .eq('merchant_oid', merchant_oid);
+
+      // E-posta gönderimi vs.
+      const { data: pixel } = await supabase.from('pixels').select('*').eq('merchant_oid', merchant_oid).single();
+      if (pixel) {
+        emailService.sendNewPixelNotification({
+          title: pixel.title,
+          x: pixel.x, y: pixel.y, w: pixel.w, h: pixel.h,
+          imageUrl: pixel.image_url, linkUrl: pixel.link_url,
+          amount: pixel.price
+        });
+        
+        try {
+          await supabase.from('activity_logs').insert({
+            action: 'PIXEL_CREATE',
+            description: `Yeni Pixel Satın Alındı: ${pixel.title}`,
+          });
+        } catch (_) {}
+      }
+
+      console.log('Payment Approved:', merchant_oid);
+      return res.status(200).send('OK');
+    } else {
+      // Payment Failed
+      await supabase.from('pixels')
+        .update({ status: 'failed' })
+        .eq('merchant_oid', merchant_oid);
+
+      console.log('Payment Failed:', merchant_oid, failed_reason_msg);
+      return res.status(200).send('OK');
+    }
+  } catch (error) {
+    console.error('PayTR Callback Error:', error);
+    res.status(500).send('Internal Server Error');
   }
 });
 

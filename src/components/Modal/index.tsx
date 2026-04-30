@@ -1,7 +1,8 @@
-import { useState, useRef, FormEvent, DragEvent } from 'react';
+import { useState, useRef, FormEvent, DragEvent, useEffect } from 'react';
 import { PixelFormData } from '../../types';
 import { validatePixelForm } from '../../utils/validation';
-import { Upload, Link, X, Image, Loader2 } from 'lucide-react';
+import { Upload, Link, X, Image, Loader2, ArrowLeft } from 'lucide-react';
+import { api } from '../../services/api';
 
 interface ModalProps {
   isOpen: boolean;
@@ -15,9 +16,9 @@ const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://l
 type ImageTab = 'url' | 'upload';
 
 export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps) {
-  const [formData, setFormData] = useState<PixelFormData>({
+  const [formData, setFormData] = useState<PixelFormData & { email: string }>({
     x: 0, y: 0, w: 1, h: 1,
-    imageUrl: '', linkUrl: '', title: ''
+    imageUrl: '', linkUrl: '', title: '', email: ''
   });
   const [imageTab, setImageTab] = useState<ImageTab>('upload');
   const [uploading, setUploading] = useState(false);
@@ -25,7 +26,18 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [paymentToken, setPaymentToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // When paymentToken is set, we need to initialize the iframe resizer
+  useEffect(() => {
+    if (paymentToken && typeof (window as any).paytrInitIframe === 'function') {
+      // Give it a small delay for iframe to render
+      setTimeout(() => {
+        (window as any).paytrInitIframe();
+      }, 500);
+    }
+  }, [paymentToken]);
 
   if (!isOpen || !selectedCoords) return null;
 
@@ -83,19 +95,36 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
     const data = { ...formData, x: selectedCoords.x, y: selectedCoords.y };
     const errors = validatePixelForm(data);
+    if (!data.email || !data.email.includes('@')) {
+      errors.push('Geçerli bir e-posta adresi girin');
+    }
+    
     if (errors.length > 0) { setError(errors.join(', ')); return; }
 
     setLoading(true);
     try {
-      await onSubmit(data);
-      onClose();
-      setFormData({ x: 0, y: 0, w: 1, h: 1, imageUrl: '', linkUrl: '', title: '' });
-      setUploadedPreview('');
+      // Start payment process and get PayTR payment link
+      const res = await api.initPayment(data);
+      
+      if (res.link) {
+        // Redirect to PayTR payment page
+        window.location.href = res.link;
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+      setError(err instanceof Error ? err.message : 'Ödeme başlatılamadı');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleModalClose = () => {
+    onClose();
+    setTimeout(() => {
+      setFormData({ x: 0, y: 0, w: 1, h: 1, imageUrl: '', linkUrl: '', title: '', email: '' });
+      setUploadedPreview('');
+      setPaymentToken(null);
+      setError('');
+    }, 200);
   };
 
   return (
@@ -104,11 +133,35 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
         {/* Header */}
         <div className="bg-black text-white p-3 md:p-4 flex justify-between items-center shrink-0">
-          <h2 className="font-display font-bold text-lg md:text-xl uppercase tracking-wider">Alanı Sahiplen</h2>
-          <button onClick={onClose} className="hover:text-red-500 font-mono text-xl font-bold transition-colors">[X]</button>
+          <h2 className="font-display font-bold text-lg md:text-xl uppercase tracking-wider">
+            {paymentToken ? 'Ödeme İşlemi' : 'Alanı Sahiplen'}
+          </h2>
+          <button onClick={handleModalClose} className="hover:text-red-500 font-mono text-xl font-bold transition-colors">[X]</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4 md:space-y-5 bg-[#f4f4f0] overflow-y-auto">
+        {paymentToken ? (
+          <div className="p-4 md:p-6 bg-[#f4f4f0] overflow-y-auto flex-1">
+            <div className="mb-4">
+              <button 
+                onClick={() => setPaymentToken(null)}
+                className="flex items-center gap-2 text-sm font-mono font-bold hover:text-red-600 transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" /> Forma Geri Dön
+              </button>
+            </div>
+            <div className="w-full bg-white border-2 border-black brutal-shadow-sm min-h-[400px]">
+              <iframe
+                src={`https://www.paytr.com/odeme/guvenli/${paymentToken}`}
+                id="paytriframe"
+                frameBorder="0"
+                scrolling="no"
+                style={{ width: '100%', minHeight: '500px' }}
+                title="PayTR Ödeme Ekranı"
+              ></iframe>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4 md:space-y-5 bg-[#f4f4f0] overflow-y-auto">
 
           {/* Koordinatlar */}
           <div className="flex gap-3 md:gap-4">
@@ -266,6 +319,18 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
             />
           </div>
 
+          {/* Email */}
+          <div>
+            <label className="block font-mono text-xs font-bold uppercase mb-2">E-posta Adresi</label>
+            <input
+              type="email" required
+              placeholder="Fatura ve onay için gerekli"
+              className="w-full border-2 border-black p-2 md:p-3 font-mono text-sm md:text-base focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm transition-colors"
+              value={formData.email}
+              onChange={e => setFormData({ ...formData, email: e.target.value })}
+            />
+          </div>
+
           {/* Slogan */}
           <div>
             <label className="block font-mono text-xs font-bold uppercase mb-2">Slogan / Marka Adı</label>
@@ -313,17 +378,17 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
             </div>
           )}
 
-          {/* Submit */}
           <div className="pt-2 md:pt-4">
             <button
               type="submit"
               disabled={loading || uploading}
               className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-display font-bold text-xl py-4 border-2 border-black brutal-shadow transition-transform active:translate-y-1 active:translate-x-1 active:shadow-none uppercase"
             >
-              {loading ? 'İşleniyor...' : `Satın Al (${(formData.w * formData.h * 100).toLocaleString()} TL)`}
+              {loading ? 'İşleniyor...' : `Güvenli Ödeme Adımına Geç (${(formData.w * formData.h * 100).toLocaleString()} TL)`}
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );
