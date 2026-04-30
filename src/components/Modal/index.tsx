@@ -278,6 +278,34 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
             />
           </div>
 
+          {/* Canlı Önizleme */}
+          {formData.imageUrl && (
+            <div>
+              <label className="block font-mono text-xs font-bold uppercase mb-2">Canlı Önizleme (Gerçek Boyut)</label>
+              <div className="w-full border-2 border-black bg-white p-4 md:p-6 flex flex-col items-center justify-center brutal-shadow-sm">
+                <div 
+                  className="bg-white border border-gray-300 shadow-inner relative overflow-hidden"
+                  style={{ 
+                    width: formData.w * 10, 
+                    height: formData.h * 10,
+                    backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h5v5H0zM5 5h5v5H5z\' fill=\'%23f3f4f6\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+                    backgroundRepeat: 'repeat'
+                  }}
+                  title={formData.title || "Önizleme"}
+                >
+                  <img 
+                    src={uploadedPreview || formData.imageUrl} 
+                    alt="Canlı Önizleme" 
+                    className="w-full h-full object-contain object-center" 
+                  />
+                </div>
+                <p className="font-mono text-[11px] text-gray-500 mt-4 text-center max-w-xs leading-relaxed">
+                  Görseliniz grid üzerinde tam olarak bu boyutlarda <strong className="text-black">({formData.w * 10}x{formData.h * 10} px)</strong> görünecektir. Netliğinden emin olun.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Hata */}
           {error && (
             <div className="p-2 md:p-3 bg-red-600 text-white font-mono text-xs md:text-sm border-2 border-black brutal-shadow-sm">
