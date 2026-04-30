@@ -94,7 +94,7 @@ navigate('/ers-admin/login');
       await api.deletePixel(id);
       await loadData();
     } catch (error) {
-      alert('Silme başarısız');
+      alert(error instanceof Error ? error.message : 'Silme başarısız');
     }
   };
 

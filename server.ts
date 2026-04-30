@@ -3,12 +3,32 @@ import express from 'express';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 import { adminService } from './src/services/adminService.js';
 import { db } from './src/services/supabase.js';
 import { emailService } from './server/services/emailService.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+
+function getBearerToken(req: express.Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  return authHeader.slice('Bearer '.length).trim() || null;
+}
+
+function getSupabaseServiceClient() {
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) return null;
+
+  return createClient(url, serviceKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
@@ -118,9 +138,38 @@ app.post('/api/pixels', async (req, res) => {
 app.delete('/api/pixels/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await db.pixels.delete(id);
-    
-    if (!deleted) {
+
+    const token = getBearerToken(req);
+    if (!token) {
+      res.status(401).json({ error: 'Yetkilendirme gerekli' });
+      return;
+    }
+
+    const service = getSupabaseServiceClient();
+    if (!service) {
+      res.status(500).json({ error: 'Server Supabase service ayarları eksik' });
+      return;
+    }
+
+    // Verify Supabase JWT before allowing destructive operations.
+    const { data: userData, error: userError } = await service.auth.getUser(token);
+    if (userError || !userData?.user) {
+      res.status(401).json({ error: 'Geçersiz oturum' });
+      return;
+    }
+
+    const { data: deletedRows, error: deleteError } = await service
+      .from('pixels')
+      .delete()
+      .eq('id', id)
+      .select('id');
+
+    if (deleteError) {
+      res.status(400).json({ error: deleteError.message || 'Silme başarısız' });
+      return;
+    }
+
+    if (!deletedRows || deletedRows.length === 0) {
       res.status(404).json({ error: 'Pixel bulunamadı' });
       return;
     }

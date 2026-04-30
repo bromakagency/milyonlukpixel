@@ -31,6 +31,8 @@ export interface Stats {
   soldPixels: number;
   availablePixels: number;
   totalRevenue: number;
+  soldPercent?: number;
+  recentBlocksSold24h?: number;
 }
 
 export interface AdminInfo {

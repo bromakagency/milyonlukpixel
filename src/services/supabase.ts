@@ -1,9 +1,15 @@
+/// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://dqkwiyoqibutvpaeyeax.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxa3dpeW9xaWJ1dHZwYWV5ZWF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNzI4NDAsImV4cCI6MjA5MTc0ODg0MH0.oUvqja5D1TSoJ-wylqPEW4QuaHQdai7oEjp82lWWfE8';
+// Hem Vite (tarayıcı) hem de Node.js ortamında çalışması için kontrol ekliyoruz
+const SUPABASE_URL = (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_SUPABASE_URL : process.env.VITE_SUPABASE_URL) as string;
+const SUPABASE_ANON_KEY = (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_SUPABASE_ANON_KEY : process.env.VITE_SUPABASE_ANON_KEY) as string;
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn('Supabase URL veya Anon Key bulunamadı! Lütfen .env dosyasını kontrol edin.');
+}
+
+export const supabase = createClient(SUPABASE_URL || '', SUPABASE_ANON_KEY || '');
 
 export interface Pixel {
   id: string;
@@ -96,12 +102,19 @@ export const db = {
     },
 
     async delete(id: string): Promise<boolean> {
-      const { error } = await supabase
+      // RLS/permission issues can sometimes look like "no rows affected".
+      // Ask Supabase to return deleted rows so we can verify the operation.
+      const { data, error } = await supabase
         .from('pixels')
         .delete()
-        .eq('id', id);
-      
-      return !error;
+        .eq('id', id)
+        .select('id');
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Pixel silinemedi (bulunamadı veya yetki yok)');
+      }
+      return true;
     },
 
     async checkOverlap(x: number, y: number, w: number, h: number, excludeId?: string): Promise<boolean> {

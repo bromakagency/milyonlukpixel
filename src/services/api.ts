@@ -1,5 +1,6 @@
 import { db } from './supabase';
 import type { Pixel, Stats, ActivityLog } from './supabase';
+import { adminApi } from './adminApi';
 
 export interface PixelFormData {
   x: number;
@@ -90,8 +91,37 @@ export const api = {
   },
 
   async deletePixel(id: string): Promise<void> {
-    const deleted = await db.pixels.delete(id);
-    if (!deleted) throw new Error('Silme başarısız');
+    const token = await adminApi.getToken();
+
+    // Admin panel deletes go through backend (service role) because RLS may block client-side deletes.
+    if (token) {
+      const res = await fetch(`/api/pixels/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) return;
+
+      let msg = 'Silme başarısız';
+      try {
+        const body = await res.json();
+        if (body?.error) msg = String(body.error);
+      } catch {
+        // ignore JSON parse
+      }
+      throw new Error(msg);
+    }
+
+    // Fallback (non-admin contexts)
+    try {
+      await db.pixels.delete(id);
+    } catch (err) {
+      const message =
+        err && typeof err === 'object' && 'message' in err
+          ? String((err as any).message)
+          : 'Silme başarısız';
+      throw new Error(message);
+    }
   },
 
   async getStats(): Promise<Stats> {

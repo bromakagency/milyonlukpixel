@@ -6,6 +6,13 @@ export function usePixels() {
   const totalPixels = 1000000;
   const soldPixels = pixels.reduce((acc, p) => acc + (p.w * 10 * p.h * 10), 0);
   const availablePixels = totalPixels - soldPixels;
+  const recentBlocksSold24h = pixels.filter((pixel) => {
+    if (!pixel.createdAt) return false;
+    const createdAt = new Date(pixel.createdAt);
+    const hoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+    return createdAt.getTime() >= hoursAgo;
+  }).length;
+  const soldPercent = totalPixels === 0 ? 0 : (soldPixels / totalPixels) * 100;
 
   return {
     pixels,
@@ -19,6 +26,8 @@ export function usePixels() {
       totalPixels,
       soldPixels,
       availablePixels,
+      soldPercent,
+      recentBlocksSold24h,
     },
   };
 }
