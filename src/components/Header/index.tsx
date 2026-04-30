@@ -97,10 +97,22 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
             </div>
 
             <div className="mt-8 flex items-center gap-4">
-              <div className="flex -space-x-2">
-                <span className="h-10 w-10 rounded-full border-2 border-white bg-gradient-to-br from-gray-300 to-gray-500" />
-                <span className="h-10 w-10 rounded-full border-2 border-white bg-gradient-to-br from-red-200 to-red-500" />
-                <span className="h-10 w-10 rounded-full border-2 border-white bg-gradient-to-br from-gray-200 to-gray-400" />
+              <div className="flex -space-x-3">
+                <img 
+                  src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Felix" 
+                  alt="Ziyaretçi" 
+                  className="h-10 w-10 rounded-full border-2 border-white bg-red-50 shadow-sm"
+                />
+                <img 
+                  src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Aneka" 
+                  alt="Ziyaretçi" 
+                  className="h-10 w-10 rounded-full border-2 border-white bg-blue-50 shadow-sm"
+                />
+                <img 
+                  src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Patches" 
+                  alt="Ziyaretçi" 
+                  className="h-10 w-10 rounded-full border-2 border-white bg-gray-50 shadow-sm"
+                />
               </div>
               <p className="text-sm leading-5 text-gray-600">
                 Son 24 saatte <strong className="text-red-600">{loading ? <span className="animate-pulse">...</span> : recentBlocksSold24h}</strong> blok satıldı
