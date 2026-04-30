@@ -469,6 +469,41 @@ app.post('/api/payment/paytr-callback', async (req, res) => {
   }
 });
 
+// ── Image Proxy (CORS bypass for R2 CDN) ─────────────────────────────────────
+// Frontend'den fetch ettiğimizde R2'nin CORS politikası engeller.
+// Bu endpoint sunucu tarafında görseli çekip client'a iletir.
+app.get('/api/proxy-image', async (req, res) => {
+  const imageUrl = req.query.url as string;
+  
+  if (!imageUrl) {
+    return res.status(400).json({ error: 'URL parametresi gerekli' });
+  }
+
+  // Sadece kendi CDN'imizden gelen URL'lere izin ver (güvenlik)
+  const allowedDomain = process.env.R2_PUBLIC_URL || 'cdn.milyonlukpiksel.com';
+  if (!imageUrl.startsWith('https://cdn.milyonlukpiksel.com') && !imageUrl.startsWith(allowedDomain)) {
+    return res.status(403).json({ error: 'Bu domain için proxy kullanılamaz' });
+  }
+
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Görsel yüklenemedi' });
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/webp';
+    const buffer = await response.arrayBuffer();
+
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Access-Control-Allow-Origin', '*');
+    return res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('Proxy image error:', error);
+    return res.status(500).json({ error: 'Görsel proxy hatası' });
+  }
+});
+
 // Sunucuyu dışa aktar (Vercel için gerekli)
 export default app;
 

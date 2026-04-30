@@ -29,7 +29,9 @@ export function PaymentResult() {
 
   useEffect(() => {
     if (userLogo) {
-      fetch(userLogo)
+      // R2 CDN CORS politikasını aşmak için kendi proxy endpoint'imizi kullanıyoruz
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(userLogo)}`;
+      fetch(proxyUrl)
         .then(res => res.blob())
         .then(blob => {
           const reader = new FileReader();
