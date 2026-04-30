@@ -17,9 +17,13 @@ function getBearerToken(req: express.Request): string | null {
 }
 
 function getSupabaseServiceClient() {
-  const url = process.env.SUPABASE_URL;
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) return null;
+  
+  if (!url || !serviceKey) {
+    console.error('MISSING ENV:', { url: !!url, serviceKey: !!serviceKey });
+    return null;
+  }
 
   return createClient(url, serviceKey, {
     auth: {
@@ -201,7 +205,11 @@ app.delete('/api/pixels/:id', async (req, res) => {
     
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: 'Silme başarısız' });
+    console.error('DELETE ERROR:', error);
+    res.status(500).json({ 
+      error: 'Silme başarısız', 
+      details: error instanceof Error ? error.message : String(error) 
+    });
   }
 });
 
