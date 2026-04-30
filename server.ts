@@ -1,14 +1,34 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-// Vite'ı top-level import YAPMIYORUZ! (Vercel Serverless ortamını çökertiyor)
 import path from 'path';
+import * as multer from 'multer';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
 import { db } from './src/services/supabase.js';
 import { emailService } from './server/services/emailService.js';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+
+// ── Cloudflare R2 Client ──────────────────────────────────────────────────
+const r2 = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId:     process.env.R2_ACCESS_KEY_ID     || '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+  },
+});
+
+const upload = multer.default({
+  storage: multer.default.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // max 5 MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
 
 function getBearerToken(req: express.Request): string | null {
   const authHeader = req.headers.authorization;
@@ -65,6 +85,35 @@ app.get('/api/live-count', (req, res) => {
   }
   // Kullanıcının belirttiği gibi FOMO etkisi (aktif sayı + 2)
   res.json({ count: count + 2 });
+});
+
+// ── Cloudflare R2 Dosya Yükleme ───────────────────────────────────────────
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'Dosya bulunamadı veya geçersiz format.' });
+      return;
+    }
+
+    const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'png';
+    const key = `pixels/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+    await r2.send(new PutObjectCommand({
+      Bucket:      process.env.R2_BUCKET_NAME || '',
+      Key:         key,
+      Body:        req.file.buffer,
+      ContentType: req.file.mimetype,
+    }));
+
+    // Public URL: R2 custom domain veya r2.dev subdomain
+    const publicBase = process.env.R2_PUBLIC_URL?.replace(/\/$/, '');
+    const url = `${publicBase}/${key}`;
+
+    res.json({ url });
+  } catch (err) {
+    console.error('R2 upload error:', err);
+    res.status(500).json({ error: 'Dosya yüklenemedi.' });
+  }
 });
 
 // Admin login (Supabase Auth üzerinden)

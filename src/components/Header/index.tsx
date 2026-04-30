@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usePixels } from '../../hooks/usePixels';
 import { formatNumber } from '../../utils/helpers';
-import { ArrowRight, Eye } from 'lucide-react';
+import { ArrowRight, Eye, ChevronRight, Globe } from 'lucide-react';
 
 interface HeaderProps {
   title?: string;
@@ -9,7 +9,7 @@ interface HeaderProps {
 }
 
 export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderProps) {
-  const { stats, loading } = usePixels();
+  const { stats, loading, pixels } = usePixels();
   const soldPercent = stats.soldPercent ?? 0;
   const recentBlocksSold24h = stats.recentBlocksSold24h ?? 0;
   const soldPixelsFormatted = formatNumber(stats.soldPixels);
@@ -20,7 +20,7 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
     const cached = localStorage.getItem('pixel_live_users');
     return cached ? parseInt(cached, 10) : 4;
   });
-  
+
   useEffect(() => {
     let visitorId = localStorage.getItem('pixel_visitor_id');
     if (!visitorId) {
@@ -35,7 +35,7 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ visitorId }),
-      }).catch(() => {});
+      }).catch(() => { });
     };
 
     const fetchLiveCount = async () => {
@@ -70,7 +70,12 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
       <div className="mx-auto w-full max-w-7xl px-4 md:px-8 py-10 md:py-16">
         <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div className="min-w-0">
-            <h1 className="font-display text-4xl md:text-6xl lg:text-[5.8rem] font-black uppercase leading-[0.92] tracking-tight max-w-[12ch]">
+            <img
+              src="/images/milyonluk_piksel_logo.svg"
+              alt="Milyonluk Piksel Logo"
+              className="h-20 md:h-28 lg:h-36 mb-6 object-contain origin-left"
+            />
+            <h1 className="font-display text-3xl md:text-4xl lg:text-5xl font-black uppercase leading-[1.1] tracking-tight">
               İnternet tarihinde
               <span className="block text-red-600">yerini al</span>
             </h1>
@@ -82,35 +87,28 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
             <div className="mt-8 flex flex-wrap gap-4">
               <a
                 href="#grid"
-                className="inline-flex h-14 items-center justify-center gap-2 rounded-[8px] border-2 border-red-600 bg-red-600 px-6 text-sm font-extrabold uppercase text-white transition-transform hover:-translate-y-0.5"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-[8px] border-2 border-red-600 bg-red-600 px-5 text-sm font-extrabold uppercase text-white transition-transform hover:-translate-y-0.5"
               >
                 Piksel Satın Al
                 <ArrowRight className="h-4 w-4" />
-              </a>
-              <a
-                href="#grid"
-                className="inline-flex h-14 items-center justify-center gap-2 rounded-[8px] border border-gray-300 bg-white px-6 text-sm font-extrabold uppercase text-gray-900 transition-colors hover:border-gray-900"
-              >
-                Örnekleri Gör
-                <Eye className="h-4 w-4" />
               </a>
             </div>
 
             <div className="mt-8 flex items-center gap-4">
               <div className="flex -space-x-3">
-                <img 
-                  src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Felix" 
-                  alt="Ziyaretçi" 
+                <img
+                  src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Felix"
+                  alt="Ziyaretçi"
                   className="h-10 w-10 rounded-full border-2 border-white bg-red-50 shadow-sm"
                 />
-                <img 
-                  src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Aneka" 
-                  alt="Ziyaretçi" 
+                <img
+                  src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Aneka"
+                  alt="Ziyaretçi"
                   className="h-10 w-10 rounded-full border-2 border-white bg-blue-50 shadow-sm"
                 />
-                <img 
-                  src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Patches" 
-                  alt="Ziyaretçi" 
+                <img
+                  src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Patches"
+                  alt="Ziyaretçi"
                   className="h-10 w-10 rounded-full border-2 border-white bg-gray-50 shadow-sm"
                 />
               </div>
@@ -168,6 +166,42 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
                   />
                 </div>
               </div>
+
+              {/* ── Canlı Aktivite ──────────────────────────────────────────────── */}
+              {pixels.length > 0 && (
+                <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+                    </span>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-gray-800">
+                      CANLI AKTİVİTE
+                    </h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2 bg-white/50 backdrop-blur-sm border border-gray-200 p-2 rounded-[20px] shadow-sm">
+                    {[...pixels]
+                      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+                      .slice(0, 3)
+                      .map((pixel) => (
+                        <div key={pixel.id} className="flex items-center gap-2.5 p-2 hover:bg-white rounded-[14px] transition-colors min-w-0">
+                          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm p-0.5">
+                            <img
+                              src={pixel.imageUrl}
+                              alt={pixel.title}
+                              className="h-full w-full object-contain"
+                            />
+                          </div>
+                          <p className="text-[11px] font-semibold text-gray-700 leading-tight">
+                            {pixel.w * 10}×{pixel.h * 10}<br />
+                            <span className="font-normal text-gray-500">piksel aldı</span>
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
