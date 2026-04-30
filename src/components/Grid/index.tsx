@@ -73,7 +73,7 @@ function PixelCanvas({
             key={pixel.id}
             href={pixel.linkUrl}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener noreferrer nofollow ugc"
             title={pixel.title}
             className="absolute block overflow-hidden bg-white hover:z-30 hover:ring-4 hover:ring-red-600 transition-none"
             style={{

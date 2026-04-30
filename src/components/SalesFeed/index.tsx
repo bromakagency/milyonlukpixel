@@ -87,7 +87,7 @@ export function SalesFeed() {
               <a
                 href={sale.linkUrl}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="noopener noreferrer nofollow ugc"
                 className="font-bold hover:underline decoration-dotted text-[11px] leading-none pb-[1px]"
               >
                 {sale.title || 'İsimsiz'}

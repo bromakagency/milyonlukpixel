@@ -1,6 +1,8 @@
 User-agent: *
 Allow: /
 Disallow: /ers-admin
-Disallow: /ers-admin/
+Disallow: /basarili
+Disallow: /basarisiz
+Disallow: /api/
 
 Sitemap: https://milyonlukpiksel.com/sitemap.xml
