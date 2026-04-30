@@ -9,14 +9,17 @@ interface HeaderProps {
 }
 
 export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderProps) {
-  const { stats } = usePixels();
+  const { stats, loading } = usePixels();
   const soldPercent = stats.soldPercent ?? 0;
   const recentBlocksSold24h = stats.recentBlocksSold24h ?? 0;
   const soldPixelsFormatted = formatNumber(stats.soldPixels);
   const availablePixelsFormatted = formatNumber(stats.availablePixels);
 
   // Sunucu bazlı gerçek + FOMO ziyaretçi takibi (Polling)
-  const [liveUsers, setLiveUsers] = useState(2);
+  const [liveUsers, setLiveUsers] = useState(() => {
+    const cached = localStorage.getItem('pixel_live_users');
+    return cached ? parseInt(cached, 10) : 4;
+  });
   
   useEffect(() => {
     let visitorId = localStorage.getItem('pixel_visitor_id');
@@ -42,6 +45,7 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
           const data = await res.json();
           if (data && typeof data.count === 'number') {
             setLiveUsers(data.count);
+            localStorage.setItem('pixel_live_users', data.count.toString());
           }
         }
       } catch (error) {
@@ -99,7 +103,7 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
                 <span className="h-10 w-10 rounded-full border-2 border-white bg-gradient-to-br from-gray-200 to-gray-400" />
               </div>
               <p className="text-sm leading-5 text-gray-600">
-                Son 24 saatte <strong className="text-red-600">{recentBlocksSold24h}</strong> blok satıldı
+                Son 24 saatte <strong className="text-red-600">{loading ? <span className="animate-pulse">...</span> : recentBlocksSold24h}</strong> blok satıldı
                 <br />
                 Şu an <strong className="text-red-600">{liveUsers}</strong> kişi alanları inceliyor
               </p>
@@ -127,13 +131,13 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
                 <div className="rounded-xl border border-gray-200 bg-white px-4 py-5">
                   <small className="block text-[11px] font-bold uppercase tracking-wide text-gray-500">Satılan</small>
                   <strong className="mt-2 block text-3xl font-black tracking-tight">
-                    {soldPixelsFormatted} PX
+                    {loading ? <span className="animate-pulse text-gray-300">...</span> : `${soldPixelsFormatted} PX`}
                   </strong>
                 </div>
                 <div className="rounded-xl border border-gray-200 bg-white px-4 py-5">
                   <small className="block text-[11px] font-bold uppercase tracking-wide text-gray-500">Kalan</small>
                   <strong className="mt-2 block text-3xl font-black tracking-tight text-red-600">
-                    {availablePixelsFormatted} PX
+                    {loading ? <span className="animate-pulse text-red-300">...</span> : `${availablePixelsFormatted} PX`}
                   </strong>
                 </div>
               </div>
