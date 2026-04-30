@@ -15,6 +15,59 @@ const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://l
 
 type ImageTab = 'url' | 'upload';
 
+const compressImageToWebP = (file: File): Promise<File> => {
+  return new Promise((resolve) => {
+    // SVG dosyalarını dönüştürme (bozulur)
+    if (file.type === 'image/svg+xml') {
+      return resolve(file);
+    }
+    
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new window.Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        
+        // Maksimum boyutları sınırla (1000x1000) - piksel art için çok bile
+        let width = img.width;
+        let height = img.height;
+        const maxSize = 1000;
+        
+        if (width > height && width > maxSize) {
+          height *= maxSize / width;
+          width = maxSize;
+        } else if (height > maxSize) {
+          width *= maxSize / height;
+          height = maxSize;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(file);
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob((blob) => {
+          if (!blob) return resolve(file);
+          
+          const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
+          const newFile = new File([blob], newFileName, {
+            type: 'image/webp',
+            lastModified: Date.now(),
+          });
+          resolve(newFile);
+        }, 'image/webp', 0.85); // %85 kalite
+      };
+      img.onerror = () => resolve(file);
+    };
+    reader.onerror = () => resolve(file);
+  });
+};
+
 export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps) {
   const [formData, setFormData] = useState<PixelFormData & { email: string }>({
     x: 0, y: 0, w: 1, h: 1,
@@ -45,27 +98,30 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   const handleFile = async (file: File) => {
     if (!file) return;
 
-    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
-    if (!allowed.includes(file.type)) {
+    if (!file.type.match(/^image\/(jpeg|png|gif|webp|svg\+xml)$/)) {
       setError('Desteklenen formatlar: JPG, PNG, GIF, WebP, SVG');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Dosya boyutu en fazla 5 MB olabilir.');
+    // Limit 50MB (tarayıcı çökmesin diye) - Gerçek yükleme 100KB'a düşecek
+    if (file.size > 50 * 1024 * 1024) {
+      setError('Dosya boyutu çok büyük (Max 50MB).');
       return;
     }
 
     setUploading(true);
     setError('');
 
-    // Lokal preview
-    const reader = new FileReader();
-    reader.onload = (e) => setUploadedPreview(e.target?.result as string);
-    reader.readAsDataURL(file);
-
     try {
+      // Resmi tarayıcıda WebP formatına sıkıştır ve boyutlandır
+      const processedFile = await compressImageToWebP(file);
+
+      // Lokal preview (sıkıştırılmış haliyle)
+      const reader = new FileReader();
+      reader.onload = (e) => setUploadedPreview(e.target?.result as string);
+      reader.readAsDataURL(processedFile);
+
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', processedFile);
 
       const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: fd });
       const json = await res.json();
@@ -179,24 +235,48 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
           {/* Boyutlar */}
           <div className="grid grid-cols-2 gap-3 md:gap-4">
             <div>
-              <label className="block font-mono text-xs font-bold uppercase mb-2">Genişlik (Blok)</label>
-              <input
-                type="number" min="1" max="125" required
-                className="w-full border-2 border-black p-2 md:p-3 font-mono text-base md:text-lg focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm transition-colors"
-                value={formData.w}
-                onChange={e => setFormData({ ...formData, w: parseInt(e.target.value) || 1 })}
-              />
-              <p className="font-mono text-xs text-gray-600 mt-1">Genişlik: {formData.w * 10} px</p>
+              <label className="block font-mono text-xs font-bold uppercase mb-2 text-center">Genişlik (Blok)</label>
+              <div className="flex border-2 border-black brutal-shadow-sm focus-within:bg-[#ffd700]/20 transition-colors bg-white">
+                <button 
+                  type="button" 
+                  className="px-3 md:px-4 py-2 border-r-2 border-black bg-gray-100 hover:bg-gray-200 active:bg-gray-300 font-bold font-mono text-lg flex items-center justify-center"
+                  onClick={() => setFormData(prev => ({ ...prev, w: Math.max(1, (prev.w || 1) - 1) }))}
+                >−</button>
+                <input
+                  type="number" min="1" max="125" required
+                  className="w-full p-2 md:p-3 font-mono text-center text-base md:text-lg focus:outline-none bg-transparent appearance-none"
+                  value={formData.w || ''}
+                  onChange={e => setFormData({ ...formData, w: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                />
+                <button 
+                  type="button" 
+                  className="px-3 md:px-4 py-2 border-l-2 border-black bg-gray-100 hover:bg-gray-200 active:bg-gray-300 font-bold font-mono text-lg flex items-center justify-center"
+                  onClick={() => setFormData(prev => ({ ...prev, w: Math.min(125, (prev.w || 0) + 1) }))}
+                >+</button>
+              </div>
+              <p className="font-mono text-xs text-gray-600 mt-1 text-center">Genişlik: {formData.w ? formData.w * 10 : 0} px</p>
             </div>
             <div>
-              <label className="block font-mono text-xs font-bold uppercase mb-2">Yükseklik (Blok)</label>
-              <input
-                type="number" min="1" max="80" required
-                className="w-full border-2 border-black p-2 md:p-3 font-mono text-base md:text-lg focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm transition-colors"
-                value={formData.h}
-                onChange={e => setFormData({ ...formData, h: parseInt(e.target.value) || 1 })}
-              />
-              <p className="font-mono text-xs text-gray-600 mt-1">Yükseklik: {formData.h * 10} px</p>
+              <label className="block font-mono text-xs font-bold uppercase mb-2 text-center">Yükseklik (Blok)</label>
+              <div className="flex border-2 border-black brutal-shadow-sm focus-within:bg-[#ffd700]/20 transition-colors bg-white">
+                <button 
+                  type="button" 
+                  className="px-3 md:px-4 py-2 border-r-2 border-black bg-gray-100 hover:bg-gray-200 active:bg-gray-300 font-bold font-mono text-lg flex items-center justify-center"
+                  onClick={() => setFormData(prev => ({ ...prev, h: Math.max(1, (prev.h || 1) - 1) }))}
+                >−</button>
+                <input
+                  type="number" min="1" max="80" required
+                  className="w-full p-2 md:p-3 font-mono text-center text-base md:text-lg focus:outline-none bg-transparent appearance-none"
+                  value={formData.h || ''}
+                  onChange={e => setFormData({ ...formData, h: e.target.value === '' ? 0 : parseInt(e.target.value) })}
+                />
+                <button 
+                  type="button" 
+                  className="px-3 md:px-4 py-2 border-l-2 border-black bg-gray-100 hover:bg-gray-200 active:bg-gray-300 font-bold font-mono text-lg flex items-center justify-center"
+                  onClick={() => setFormData(prev => ({ ...prev, h: Math.min(80, (prev.h || 0) + 1) }))}
+                >+</button>
+              </div>
+              <p className="font-mono text-xs text-gray-600 mt-1 text-center">Yükseklik: {formData.h ? formData.h * 10 : 0} px</p>
             </div>
           </div>
 
@@ -290,7 +370,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
                     <p className="font-mono text-xs text-gray-600">
                       Dosyayı buraya sürükle veya <span className="font-bold underline">tıkla</span>
                     </p>
-                    <p className="font-mono text-[10px] text-gray-400 mt-1">JPG, PNG, GIF, WebP, SVG — max 5 MB</p>
+                    <p className="font-mono text-[10px] text-gray-400 mt-1">JPG, PNG, GIF, WebP, SVG — max 50 MB</p>
                   </div>
                 )}
               </div>
@@ -312,11 +392,18 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
           <div>
             <label className="block font-mono text-xs font-bold uppercase mb-2">Hedef Link</label>
             <input
-              type="url" required
-              placeholder="https://siteniz.com"
+              type="text" inputMode="url" required
+              placeholder="siteniz.com"
               className="w-full border-2 border-black p-2 md:p-3 font-mono text-sm md:text-base focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm transition-colors"
               value={formData.linkUrl}
               onChange={e => setFormData({ ...formData, linkUrl: e.target.value })}
+              onBlur={e => {
+                let url = e.target.value.trim();
+                if (url && !/^https?:\/\//i.test(url)) {
+                  url = 'https://' + url;
+                  setFormData({ ...formData, linkUrl: url });
+                }
+              }}
             />
           </div>
 

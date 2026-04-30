@@ -4,6 +4,7 @@ import { Home } from './pages/Home';
 import { Admin } from './pages/Admin';
 import { AdminLogin } from './pages/AdminLogin';
 import { PaymentResult } from './pages/PaymentResult';
+import { NotFound } from './pages/NotFound';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="/hata" element={<PaymentResult />} />
           <Route path="/ers-admin/login" element={<AdminLogin />} />
           <Route path="/ers-admin" element={<Admin />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </PixelProvider>
     </BrowserRouter>
