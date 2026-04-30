@@ -10,8 +10,9 @@ export function PaymentResult() {
   const [copiedLink, setCopiedLink] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   
+  // Sadece localStorage'da değer varsa al, yoksa null
   const [areaId] = useState(() => {
-    return localStorage.getItem('lastPurchasedId') || ('PXL-' + Math.random().toString(16).substring(2, 6).toUpperCase() + '-' + Math.random().toString(16).substring(2, 6).toUpperCase());
+    return localStorage.getItem('lastPurchasedId');
   });
 
   const [userLogo] = useState(() => {
@@ -25,7 +26,12 @@ export function PaymentResult() {
     if (window.top !== window.self) {
       window.top!.location.href = window.location.href;
     }
-  }, []);
+
+    // Eğer başarılı sayfasındaysa ama localStorage'da ID yoksa (direkt URL'den girildiyse)
+    if (isSuccess && !areaId) {
+      window.location.href = '/';
+    }
+  }, [isSuccess, areaId]);
 
   useEffect(() => {
     if (userLogo) {
@@ -52,12 +58,14 @@ export function PaymentResult() {
   }, [userLogo]);
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText(areaId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (areaId) {
+      navigator.clipboard.writeText(areaId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
-  const shareText = `Milyonluk Piksel'de yerimi aldım! Sen de bu dijital tarihe geçmek istemez misin? Alanım: ${areaId} 🚀`;
+  const shareText = `Milyonluk Piksel'de yerimi aldım! Sen de bu dijital tarihe geçmek istemez misin? Alanım: ${areaId || ''} 🚀`;
   const shareUrl = 'https://milyonlukpiksel.com';
   const fullCopyText = `Milyonluk Piksel'de yerimi aldım! Sen de bu dijital tarihe geçmek istemez misin? https://milyonlukpiksel.com`;
 
@@ -88,7 +96,7 @@ export function PaymentResult() {
       });
       
       const link = document.createElement('a');
-      link.download = `milyonluk-piksel-${areaId}.png`;
+      link.download = `milyonluk-piksel.png`; // ID kısmı kaldırıldı
       link.href = dataUrl;
       link.click();
     } catch (error) {
@@ -96,6 +104,11 @@ export function PaymentResult() {
       alert('Kart indirilirken bir hata oluştu. Lütfen farklı bir tarayıcıda deneyin.');
     }
   };
+
+  // Eğer başarılı sayfasındaysa ve ID yoksa render etme (redirect olacak zaten)
+  if (isSuccess && !areaId) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-[#f4f4f0] flex flex-col items-center justify-center p-4 selection:bg-red-600 selection:text-white">
