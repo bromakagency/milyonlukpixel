@@ -82,7 +82,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
               <input
                 type="number"
                 min="1"
-                max="100"
+                max="125"
                 required
                 className="w-full border-2 border-black p-2 md:p-3 font-mono text-base md:text-lg focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm transition-colors"
                 value={formData.w}
@@ -95,7 +95,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
               <input
                 type="number"
                 min="1"
-                max="100"
+                max="80"
                 required
                 className="w-full border-2 border-black p-2 md:p-3 font-mono text-base md:text-lg focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm transition-colors"
                 value={formData.h}

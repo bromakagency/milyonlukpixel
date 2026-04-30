@@ -11,8 +11,8 @@ export function usePixels() {
     const createdAt = new Date(pixel.createdAt);
     const hoursAgo = Date.now() - (24 * 60 * 60 * 1000);
     return createdAt.getTime() >= hoursAgo;
-  }).length;
-  const soldPercent = totalPixels === 0 ? 0 : (soldPixels / totalPixels) * 100;
+  }).reduce((acc, p) => acc + (p.w * p.h), 0);
+  const soldPercent = (soldPixels / totalPixels) * 100;
 
   return {
     pixels,

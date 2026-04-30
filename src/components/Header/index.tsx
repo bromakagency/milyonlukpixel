@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { usePixels } from '../../hooks/usePixels';
 import { formatNumber } from '../../utils/helpers';
 import { ArrowRight, Eye } from 'lucide-react';
@@ -11,8 +12,21 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
   const { stats } = usePixels();
   const soldPercent = stats.soldPercent ?? 0;
   const recentBlocksSold24h = stats.recentBlocksSold24h ?? 0;
-  const soldPixelsInBlocks = formatNumber(Math.round(stats.soldPixels / 100));
-  const availablePixelsInBlocks = formatNumber(Math.round(stats.availablePixels / 100));
+  const soldPixelsFormatted = formatNumber(stats.soldPixels);
+  const availablePixelsFormatted = formatNumber(stats.availablePixels);
+
+  // Canlı, inandırıcı bir "Şu an x kişi bakıyor" simülasyonu (FOMO)
+  const [liveUsers, setLiveUsers] = useState(4);
+  useEffect(() => {
+    setLiveUsers(Math.floor(Math.random() * 8) + 3); // 3 ile 10 arası başla
+    const interval = setInterval(() => {
+      setLiveUsers(prev => {
+        const change = Math.random() > 0.5 ? 1 : -1;
+        return Math.max(2, Math.min(18, prev + change)); // 2 ile 18 arasında dalgalansın
+      });
+    }, 12000); // 12 saniyede bir hafifçe değişsin
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <section className="w-full border-b-2 md:border-b-4 border-black bg-white">
@@ -54,7 +68,7 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
               <p className="text-sm leading-5 text-gray-600">
                 Son 24 saatte <strong className="text-red-600">{recentBlocksSold24h}</strong> blok satıldı
                 <br />
-                Şu an <strong className="text-red-600">{Math.max(1, Math.min(14, recentBlocksSold24h || 1))}</strong> kişi alan satın alıyor
+                Şu an <strong className="text-red-600">{liveUsers}</strong> kişi alan satın almayı inceliyor
               </p>
             </div>
           </div>
@@ -80,13 +94,13 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
                 <div className="rounded-xl border border-gray-200 bg-white px-4 py-5">
                   <small className="block text-[11px] font-bold uppercase tracking-wide text-gray-500">Satılan</small>
                   <strong className="mt-2 block text-3xl font-black tracking-tight">
-                    {soldPixelsInBlocks} PX
+                    {soldPixelsFormatted} PX
                   </strong>
                 </div>
                 <div className="rounded-xl border border-gray-200 bg-white px-4 py-5">
                   <small className="block text-[11px] font-bold uppercase tracking-wide text-gray-500">Kalan</small>
                   <strong className="mt-2 block text-3xl font-black tracking-tight text-red-600">
-                    {availablePixelsInBlocks} PX
+                    {availablePixelsFormatted} PX
                   </strong>
                 </div>
               </div>

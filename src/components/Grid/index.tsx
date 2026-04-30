@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback, useRef, MouseEvent } from 'react';
 import { usePixelContext } from '../../context/PixelContext';
 
 // ── Grid Sabitleri ──────────────────────────────────────────────────────────
-const BLOCKS = 100;       // Her yönde kaç blok (100×100 = 1M piksel)
+const BLOCKS_X = 125;     // Yatay blok sayısı (1250px)
+const BLOCKS_Y = 80;      // Dikey blok sayısı (800px)
 const BLOCK_PX = 10;      // Her bloğun görsel boyutu (px)
-const GRID_PX = BLOCKS * BLOCK_PX; // 1000px
+const GRID_WIDTH_PX = BLOCKS_X * BLOCK_PX; // 1250px
+const GRID_HEIGHT_PX = BLOCKS_Y * BLOCK_PX; // 800px
 
 interface GridProps {
   onPixelSelect: (x: number, y: number) => void;
@@ -13,88 +15,17 @@ interface GridProps {
 export function Grid({ onPixelSelect }: GridProps) {
   const { pixels } = usePixelContext();
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
-  const [gridScale, setGridScale] = useState(1);
-  const [isTouching, setIsTouching] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // Ref'ler — native listener'larda güncel değerlere erişmek için
-  const pixelsRef = useRef(pixels);
-  const onPixelSelectRef = useRef(onPixelSelect);
-  useEffect(() => { pixelsRef.current = pixels; }, [pixels]);
-  useEffect(() => { onPixelSelectRef.current = onPixelSelect; }, [onPixelSelect]);
-
-  // ── Scale hesaplama ────────────────────────────────────────────────────
-  useEffect(() => {
-    const calculateScale = () => {
-      const vw = window.innerWidth;
-      const availableWidth = vw - 32;
-      const scale = Math.min(availableWidth / GRID_PX, 1);
-      setGridScale(scale);
-      document.documentElement.style.setProperty('--grid-scale', scale.toString());
-    };
-    calculateScale();
-    window.addEventListener('resize', calculateScale);
-    return () => window.removeEventListener('resize', calculateScale);
-  }, []);
-
   // ── Koordinat yardımcısı ───────────────────────────────────────────────
-  // rect.width = GRID_PX * gridScale  →  clientX pozisyonunu blok indeksine çeviriyoruz
+  // rect.width = GRID_WIDTH_PX * gridScale  →  clientX pozisyonunu blok indeksine çeviriyoruz
   const getCoordsFromRect = (clientX: number, clientY: number, rect: DOMRect) => {
-    const x = Math.floor(((clientX - rect.left) / rect.width) * BLOCKS);
-    const y = Math.floor(((clientY - rect.top) / rect.height) * BLOCKS);
+    const x = Math.floor(((clientX - rect.left) / rect.width) * BLOCKS_X);
+    const y = Math.floor(((clientY - rect.top) / rect.height) * BLOCKS_Y);
     return { x, y };
   };
 
-  const isInBounds = (x: number, y: number) => x >= 0 && x < BLOCKS && y >= 0 && y < BLOCKS;
-
-  // ── Native Touch Listeners { passive: false } ──────────────────────────
-  useEffect(() => {
-    const el = gridRef.current;
-    if (!el) return;
-
-    const onTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
-      setIsTouching(true);
-      const touch = e.touches[0];
-      const rect = el.getBoundingClientRect();
-      const { x, y } = getCoordsFromRect(touch.clientX, touch.clientY, rect);
-      if (isInBounds(x, y)) setMousePos({ x, y });
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const rect = el.getBoundingClientRect();
-      const { x, y } = getCoordsFromRect(touch.clientX, touch.clientY, rect);
-      setMousePos(isInBounds(x, y) ? { x, y } : null);
-    };
-
-    const onTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      setIsTouching(false);
-      const touch = e.changedTouches[0];
-      const rect = el.getBoundingClientRect();
-      const { x, y } = getCoordsFromRect(touch.clientX, touch.clientY, rect);
-
-      if (!isInBounds(x, y)) { setMousePos(null); return; }
-
-      const isOccupied = pixelsRef.current.some(
-        (p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h
-      );
-      if (!isOccupied) onPixelSelectRef.current(x, y);
-      setTimeout(() => setMousePos(null), 300);
-    };
-
-    el.addEventListener('touchstart', onTouchStart, { passive: false });
-    el.addEventListener('touchmove', onTouchMove, { passive: false });
-    el.addEventListener('touchend', onTouchEnd, { passive: false });
-
-    return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove', onTouchMove);
-      el.removeEventListener('touchend', onTouchEnd);
-    };
-  }, []);
+  const isInBounds = (x: number, y: number) => x >= 0 && x < BLOCKS_X && y >= 0 && y < BLOCKS_Y;
 
   // ── Mouse Events ───────────────────────────────────────────────────────
   const handleMouseMove = useCallback((e: MouseEvent<HTMLDivElement>) => {
@@ -125,32 +56,27 @@ export function Grid({ onPixelSelect }: GridProps) {
             : 'X: --- | Y: ---'}
         </div>
         <div className="bg-white border-2 border-black px-2 md:px-3 py-1 md:py-2 brutal-shadow-sm">
-          {GRID_PX} × {GRID_PX} PX
+          {GRID_WIDTH_PX} × {GRID_HEIGHT_PX} PX
         </div>
       </div>
 
       {/* Mobil ipucu */}
       <p className="md:hidden text-center font-mono text-xs text-gray-500 mb-2">
-        Parmağınızı kaydırın, bırakınca seçim yapılır
+        Piksel seçmek için dokunun, gezmek için kaydırın
       </p>
 
-      {/* Wrapper — scale ile küçülen grid'in gerçek kapladığı alanı tutar */}
+      {/* Wrapper — overflow-auto sayesinde mobilde sağa/sola ve aşağı/yukarı kaydırılabilir */}
       <div
-        className="border-2 md:border-4 border-black bg-white brutal-shadow-lg p-0 mx-auto overflow-hidden"
-        style={{
-          width: GRID_PX * gridScale,
-          height: GRID_PX * gridScale,
-        }}
+        className="w-full max-w-[1250px] overflow-auto border-2 md:border-4 border-black bg-[#f4f4f0] brutal-shadow-lg mx-auto"
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <div
           ref={gridRef}
           className="relative pixel-grid cursor-crosshair"
           style={{
-            width: GRID_PX,
-            height: GRID_PX,
-            transform: `scale(${gridScale})`,
-            transformOrigin: 'top left',
-            touchAction: 'none',
+            width: GRID_WIDTH_PX,
+            height: GRID_HEIGHT_PX,
+            minWidth: GRID_WIDTH_PX,
           }}
           onClick={handleClick}
           onMouseMove={handleMouseMove}
@@ -174,7 +100,7 @@ export function Grid({ onPixelSelect }: GridProps) {
               <img
                 src={pixel.imageUrl}
                 alt={pixel.title}
-                className="w-full h-full object-fill"
+                className="w-full h-full object-contain object-center"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
@@ -184,11 +110,7 @@ export function Grid({ onPixelSelect }: GridProps) {
 
           {mousePos && (
             <div
-              className={`absolute pointer-events-none z-20 ${
-                isTouching
-                  ? 'border-4 border-red-600 bg-red-600/40 ring-4 ring-red-300'
-                  : 'border-2 border-red-600 bg-red-600/30'
-              }`}
+              className="absolute pointer-events-none z-20 border-2 border-red-600 bg-red-600/30"
               style={{
                 left: mousePos.x * BLOCK_PX,
                 top: mousePos.y * BLOCK_PX,
