@@ -159,6 +159,11 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
     setLoading(true);
     try {
+      // Save logo and temporary ID to show on the success screen
+      const tempId = 'PXL-' + Math.random().toString(16).substring(2, 6).toUpperCase() + '-' + Math.random().toString(16).substring(2, 6).toUpperCase();
+      localStorage.setItem('lastPurchasedLogo', data.imageUrl);
+      localStorage.setItem('lastPurchasedId', tempId);
+
       // Start payment process and get PayTR token
       const res = await api.initPayment(data);
       
