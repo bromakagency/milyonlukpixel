@@ -218,8 +218,9 @@ app.get('/api/stats', async (req, res) => {
 // Sunucuyu dışa aktar (Vercel için gerekli)
 export default app;
 
-async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+// Yerel geliştirme için (Vercel dışında çalışırken)
+if (process.env.NODE_ENV !== 'production') {
+  async function startServer() {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -230,9 +231,5 @@ async function startServer() {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   }
-}
-
-// Sadece Vercel dışında manuel başlatıldığında çalıştır
-if (process.env.NODE_ENV !== 'production') {
   startServer();
 }
