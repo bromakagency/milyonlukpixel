@@ -24,7 +24,8 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
       visitorId = Math.random().toString(36).substring(2, 15);
       localStorage.setItem('pixel_visitor_id', visitorId);
     }
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    // Sadece geliştirme (dev) ortamında localhost kullan, canlıda (Vercel) aynı domaini kullan
+    const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
 
     const sendHeartbeat = () => {
       fetch(`${API_URL}/api/heartbeat`, {
