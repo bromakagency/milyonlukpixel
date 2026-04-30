@@ -86,8 +86,13 @@ function PixelCanvas({
             <img
               src={pixel.imageUrl}
               alt={pixel.title}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-contain object-center"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              onError={(e) => {
+                const el = e.target as HTMLImageElement;
+                el.style.opacity = '0';
+              }}
             />
           </a>
         ))}
