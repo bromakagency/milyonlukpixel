@@ -4,7 +4,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'bromakagency@gmail.com';
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Milyonluk Pixel <noreply@milyonlukpixel.com>';
 
-const resend = new Resend(RESEND_API_KEY);
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 interface PixelOrderEmail {
   title: string;
@@ -19,7 +19,7 @@ interface PixelOrderEmail {
 
 export const emailService = {
   async sendNewPixelNotification(pixel: PixelOrderEmail): Promise<boolean> {
-    if (!RESEND_API_KEY) {
+    if (!RESEND_API_KEY || !resend) {
       console.log('RESEND_API_KEY not set, skipping email');
       return false;
     }
@@ -85,7 +85,7 @@ export const emailService = {
   },
 
   async sendPixelApprovedNotification(pixel: PixelOrderEmail, customerEmail: string): Promise<boolean> {
-    if (!customerEmail || !RESEND_API_KEY) return false;
+    if (!customerEmail || !RESEND_API_KEY || !resend) return false;
 
     try {
       const { data, error } = await resend.emails.send({

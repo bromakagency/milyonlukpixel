@@ -194,7 +194,15 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
       fd.append('file', processedFile);
 
       const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: fd });
-      const json = await res.json();
+      
+      let json: any;
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        json = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(text || `Sunucu hatası: ${res.status}`);
+      }
 
       if (!res.ok) throw new Error(json.error || 'Yükleme başarısız');
 

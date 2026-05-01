@@ -2,10 +2,9 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import * as multer from 'multer';
+import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
-import { db } from './src/services/supabase.js';
 import { emailService } from './server/services/emailService.js';
 import { getGrossPriceFromBlocks } from './src/utils/pricing.js';
 import crypto from 'crypto';
@@ -14,18 +13,40 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 // ── Cloudflare R2 Client ──────────────────────────────────────────────────
-const r2 = new S3Client({
-  region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId:     process.env.R2_ACCESS_KEY_ID     || '',
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
-  },
+// Vercel'de endpoint boş string olunca hata verebilir, bu yüzden kontrollü oluşturuyoruz.
+let r2: S3Client | null = null;
+if (process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY) {
+  r2 = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId:     process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+} else {
+  console.error('[CRITICAL] Cloudflare R2 yapılandırması eksik!');
+}
+
+// Sunucu başlangıcında eksik ENV kontrolü
+const requiredEnv = [
+  'SUPABASE_URL', 
+  'SUPABASE_SERVICE_ROLE_KEY', 
+  'R2_ACCOUNT_ID', 
+  'R2_ACCESS_KEY_ID', 
+  'R2_SECRET_ACCESS_KEY', 
+  'R2_BUCKET_NAME',
+  'R2_PUBLIC_URL'
+];
+requiredEnv.forEach(env => {
+  if (!process.env[env]) {
+    console.warn(`[WARN] Eksik Environment Variable: ${env}`);
+  }
 });
 
-const upload = multer.default({
-  storage: multer.default.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // max 5 MB
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 }, // Vercel 4.5MB limiti nedeniyle 4MB'a düşürdük
   fileFilter: (_req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
     cb(null, allowed.includes(file.mimetype));
@@ -160,7 +181,7 @@ async function assertAreaAvailable(
 }
 
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
+  origin: (process.env.NODE_ENV === 'production' && process.env.ALLOWED_ORIGIN)
     ? process.env.ALLOWED_ORIGIN 
     : '*',
   credentials: true,
@@ -177,6 +198,10 @@ app.post('/api/heartbeat', (req, res) => {
     activeVisitors.set(visitorId as string, Date.now());
   }
   res.sendStatus(200);
+});
+
+app.get('/api/heartbeat', (_req, res) => {
+  res.json({ ok: true });
 });
 
 app.get('/api/live-count', (req, res) => {
@@ -205,15 +230,29 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'png';
     const key = `pixels/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
+    const bucketName = process.env.R2_BUCKET_NAME;
+    const publicBase = process.env.R2_PUBLIC_URL?.replace(/\/$/, '');
+
+    if (!r2 || !bucketName || !publicBase) {
+      console.error('R2 upload config missing:', {
+        client: Boolean(r2),
+        bucketName: Boolean(bucketName),
+        publicBase: Boolean(publicBase),
+      });
+      res.status(500).json({
+        error: 'Dosya depolama ayarlari eksik',
+        details: 'R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME ve R2_PUBLIC_URL kontrol edilmeli.',
+      });
+      return;
+    }
+
     await r2.send(new PutObjectCommand({
-      Bucket:      process.env.R2_BUCKET_NAME || '',
+      Bucket:      bucketName,
       Key:         key,
       Body:        req.file.buffer,
       ContentType: req.file.mimetype,
     }));
 
-    // Public URL: R2 custom domain veya r2.dev subdomain
-    const publicBase = process.env.R2_PUBLIC_URL?.replace(/\/$/, '');
     const url = `${publicBase}/${key}`;
 
     res.json({ url });
@@ -224,6 +263,10 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 });
 
 // Admin login (Supabase Auth üzerinden)
+app.get('/api/upload', (_req, res) => {
+  res.status(405).json({ error: 'Dosya yuklemek icin POST kullanilmali' });
+});
+
 app.post('/api/admin/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -480,8 +523,31 @@ app.delete('/api/pixels/:id', async (req, res) => {
 // Get stats
 app.get('/api/stats', async (req, res) => {
   try {
-    const stats = await db.stats.get();
-    res.json(stats);
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) {
+      res.status(500).json({ error: 'Supabase servisi yok' });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('pixels')
+      .select('w, h')
+      .eq('status', 'approved');
+
+    if (error) throw error;
+
+    const pixels = data || [];
+    const totalPixels = 1000000;
+    const soldPixels = pixels.reduce((acc: number, p: { w: number; h: number }) => acc + (p.w * 10 * p.h * 10), 0);
+    const availablePixels = totalPixels - soldPixels;
+    const totalRevenue = pixels.reduce((acc: number, p: { w: number; h: number }) => acc + getGrossPriceFromBlocks(p.w, p.h), 0);
+
+    res.json({
+      totalPixels,
+      soldPixels,
+      availablePixels,
+      totalRevenue,
+    });
   } catch (error) {
     res.status(500).json({ error: 'İstatistikler yüklenemedi' });
   }
@@ -854,6 +920,27 @@ app.get('/api/proxy-image', async (req, res) => {
     console.error('Proxy image error:', error);
     return res.status(500).json({ error: 'Görsel proxy hatası' });
   }
+});
+
+// ── Global Hata Yakalayıcı ────────────────────────────────────────────────
+// Bu middleware tüm rotalardan sonra eklenmeli. 
+// Hata oluştuğunda HTML yerine JSON dönmesini sağlar (Frontend'deki 'Unexpected token A' hatasını çözer)
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('[SERVER ERROR]:', err);
+  
+  // Multer hataları (Dosya çok büyük vb.)
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ 
+      error: 'Dosya yükleme hatası', 
+      details: err.message === 'File too large' ? 'Dosya boyutu 5MB sınırını aşıyor' : err.message 
+    });
+  }
+
+  res.status(err.status || 500).json({
+    error: 'Sunucu hatası oluştu',
+    message: err.message || 'Bilinmeyen bir hata',
+    path: req.path
+  });
 });
 
 // Sunucuyu dışa aktar (Vercel için gerekli)
