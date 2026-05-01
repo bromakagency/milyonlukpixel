@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import multer from 'multer';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -11,6 +12,7 @@ import crypto from 'crypto';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
+app.set('trust proxy', 1);
 
 // ── Cloudflare R2 Client ──────────────────────────────────────────────────
 // Vercel'de endpoint boş string olunca hata verebilir, bu yüzden kontrollü oluşturuyoruz.
@@ -51,6 +53,14 @@ const upload = multer({
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
     cb(null, allowed.includes(file.mimetype));
   },
+});
+
+const uploadRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Çok fazla dosya yükleme denemesi. Lütfen biraz bekleyin.' },
 });
 
 function getBearerToken(req: express.Request): string | null {
@@ -220,7 +230,7 @@ app.get('/api/live-count', (req, res) => {
 });
 
 // ── Cloudflare R2 Dosya Yükleme ───────────────────────────────────────────
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+app.post('/api/upload', uploadRateLimiter, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       res.status(400).json({ error: 'Dosya bulunamadı veya geçersiz format.' });

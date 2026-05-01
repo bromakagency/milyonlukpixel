@@ -79,6 +79,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   });
   const [imageTab, setImageTab] = useState<ImageTab>('upload');
   const [uploading, setUploading] = useState(false);
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
   const [uploadedPreview, setUploadedPreview] = useState<string>('');
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState('');
@@ -189,30 +190,33 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
       const reader = new FileReader();
       reader.onload = (e) => setUploadedPreview(e.target?.result as string);
       reader.readAsDataURL(processedFile);
-
-      const fd = new FormData();
-      fd.append('file', processedFile);
-
-      const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: fd });
-      
-      let json: any;
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        json = await res.json();
-      } else {
-        const text = await res.text();
-        throw new Error(text || `Sunucu hatası: ${res.status}`);
-      }
-
-      if (!res.ok) throw new Error(json.error || 'Yükleme başarısız');
-
-      setFormData(prev => ({ ...prev, imageUrl: json.url }));
+      setPendingUploadFile(processedFile);
+      setFormData(prev => ({ ...prev, imageUrl: '' }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Dosya yüklenemedi');
       setUploadedPreview('');
+      setPendingUploadFile(null);
     } finally {
       setUploading(false);
     }
+  };
+
+  const uploadPendingFile = async (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+
+    const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: fd });
+    let json: any;
+    const contentType = res.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      json = await res.json();
+    } else {
+      const text = await res.text();
+      throw new Error(text || `Sunucu hatasi: ${res.status}`);
+    }
+
+    if (!res.ok) throw new Error(json.error || 'Yukleme basarisiz');
+    return String(json.url || '');
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -236,7 +240,15 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
       setFormData(prev => ({ ...prev, w: effectiveW, h: effectiveH }));
     }
 
-    const data = { ...formData, x, y, w: effectiveW, h: effectiveH };
+    const hasPendingUpload = imageTab === 'upload' && !!pendingUploadFile;
+    const data = {
+      ...formData,
+      x,
+      y,
+      w: effectiveW,
+      h: effectiveH,
+      imageUrl: hasPendingUpload ? 'https://milyonlukpiksel.com/pending-upload.webp' : formData.imageUrl,
+    };
     const errors = validatePixelForm(data);
     if (!data.email || !data.email.includes('@')) {
       errors.push('Geçerli bir e-posta adresi girin');
@@ -246,6 +258,13 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
     setLoading(true);
     try {
+      if (hasPendingUpload && pendingUploadFile) {
+        const imageUrl = await uploadPendingFile(pendingUploadFile);
+        data.imageUrl = imageUrl;
+        setFormData(prev => ({ ...prev, imageUrl }));
+        setPendingUploadFile(null);
+      }
+
       // Save logo and temporary ID to show on the success screen
       const tempId = 'PXL-' + Math.random().toString(16).substring(2, 6).toUpperCase() + '-' + Math.random().toString(16).substring(2, 6).toUpperCase();
       localStorage.setItem('lastPurchasedLogo', data.imageUrl);
@@ -274,6 +293,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
     setTimeout(() => {
       setFormData({ x: 0, y: 0, w: 1, h: 1, imageUrl: '', linkUrl: '', title: '', email: '' });
       setUploadedPreview('');
+      setPendingUploadFile(null);
       setPaymentToken(null);
       setError('');
       setClampWarning('');
@@ -422,7 +442,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
             <div className="flex border-2 border-black mb-3">
               <button
                 type="button"
-                onClick={() => setImageTab('upload')}
+                onClick={() => { setImageTab('upload'); setFormData(p => ({ ...p, imageUrl: '' })); }}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold uppercase font-mono transition-colors ${imageTab === 'upload' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'}`}
               >
                 <Upload className="h-3.5 w-3.5" />
@@ -430,7 +450,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
               </button>
               <button
                 type="button"
-                onClick={() => setImageTab('url')}
+                onClick={() => { setImageTab('url'); setPendingUploadFile(null); setUploadedPreview(''); }}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold uppercase font-mono transition-colors ${imageTab === 'url' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'}`}
               >
                 <Link className="h-3.5 w-3.5" />
@@ -461,13 +481,13 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
                     <div className="min-w-0 flex-1">
                       {uploading
                         ? <p className="font-mono text-xs text-gray-500">Yükleniyor...</p>
-                        : <p className="font-mono text-xs text-green-700 font-bold">✓ Yüklendi</p>
+                        : <p className="font-mono text-xs text-green-700 font-bold">Hazır</p>
                       }
-                      <p className="font-mono text-[10px] text-gray-400 mt-0.5 truncate">{formData.imageUrl}</p>
+                      <p className="font-mono text-[10px] text-gray-400 mt-0.5 truncate">Ödeme adımına geçerken yüklenecek</p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => { setUploadedPreview(''); setFormData(p => ({ ...p, imageUrl: '' })); }}
+                      onClick={() => { setUploadedPreview(''); setPendingUploadFile(null); setFormData(p => ({ ...p, imageUrl: '' })); }}
                       className="shrink-0 p-1 hover:bg-red-100 rounded transition-colors"
                     >
                       <X className="h-4 w-4 text-red-500" />
@@ -548,7 +568,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
           </div>
 
           {/* Canlı Önizleme */}
-          {formData.imageUrl && (
+          {(formData.imageUrl || uploadedPreview) && (
             <div>
               <label className="block font-mono text-xs font-bold uppercase mb-2">Canlı Önizleme (Gerçek Boyut)</label>
               <div className="w-full border-2 border-black bg-white p-4 md:p-6 flex flex-col items-center justify-center brutal-shadow-sm">
