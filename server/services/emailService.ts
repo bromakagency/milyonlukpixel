@@ -60,7 +60,6 @@ export const emailService = {
               <p style="margin: 5px 0;"><strong>Görsel:</strong> <a href="${pixel.imageUrl}">${pixel.imageUrl}</a></p>
               <p style="margin: 5px 0;"><strong>Link:</strong> <a href="${pixel.linkUrl}">${pixel.linkUrl}</a></p>
             </div>
-            
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
             
             <p style="color: #666; font-size: 12px;">
@@ -105,6 +104,17 @@ export const emailService = {
             </div>
             
             <p>Sitemizi ziyaret ederek pixelinizi görebilirsiniz.</p>
+            <p style="margin: 20px 0;">
+              <a
+                href="https://www.milyonlukpiksel.com"
+                style="display: inline-block; background: #ef4444; color: #ffffff; text-decoration: none; font-weight: bold; padding: 12px 18px; border-radius: 6px;"
+              >
+                Pixelinizi Görüntüleyin
+              </a>
+            </p>
+            <p style="margin: 5px 0; color: #666; font-size: 13px;">
+              Site adresi: <a href="https://www.milyonlukpiksel.com" style="color: #ef4444;">milyonlukpiksel.com</a>
+            </p>
             
             <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
             <p style="color: #666; font-size: 12px;">
