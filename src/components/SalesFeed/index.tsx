@@ -13,6 +13,13 @@ interface SaleItem {
   linkUrl: string;
 }
 
+const fallbackItems = [
+  'Milyonluk Piksel',
+  '1.000.000 piksel',
+  '10x10 bloklar halinde',
+  'Dijital duvarda yerini al',
+];
+
 function rowToSaleItem(row: any): SaleItem {
   return {
     id: row.id,
@@ -54,10 +61,10 @@ export function SalesFeed() {
     return () => { supabase.removeChannel(channel).catch(() => {}); };
   }, []);
 
-  if (sales.length === 0) return null;
-
   // İçeriği 2× kopyala → sorunsuz döngü
-  const items = [...sales, ...sales];
+  const items: Array<SaleItem | string> = sales.length > 0
+    ? [...sales, ...sales]
+    : [...fallbackItems, ...fallbackItems, ...fallbackItems];
 
   return (
     <div className="w-full bg-red-600 text-white h-[22px] overflow-hidden flex items-center font-mono">
@@ -82,7 +89,17 @@ export function SalesFeed() {
           className="flex items-center gap-0 whitespace-nowrap h-full"
           style={{ animation: 'ticker-scroll 30s linear infinite' }}
         >
-          {items.map((sale, i) => (
+          {items.map((sale, i) => {
+            if (typeof sale === 'string') {
+              return (
+                <span key={`${sale}-${i}`} className="inline-flex items-center gap-2 px-6 h-full">
+                  <span className="font-bold text-[11px] leading-none pb-[1px]">{sale}</span>
+                  <span className="text-white/40 text-[9px] leading-none select-none">◆</span>
+                </span>
+              );
+            }
+
+            return (
             <span key={`${sale.id}-${i}`} className="inline-flex items-center gap-2 px-6 h-full">
               <a
                 href={sale.linkUrl}
@@ -97,7 +114,8 @@ export function SalesFeed() {
               </span>
               <span className="text-white/40 text-[9px] leading-none select-none">◆</span>
             </span>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
