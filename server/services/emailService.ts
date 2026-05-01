@@ -150,7 +150,7 @@ export const emailService = {
                 <div style="text-align: center; margin: 30px 0;">
                   <a href="https://www.milyonlukpiksel.com" 
                      style="display: inline-block; background-color: #ef4444; color: #ffffff; text-decoration: none; font-weight: 900; font-size: 16px; text-transform: uppercase; padding: 15px 30px; border: 3px solid #000000; box-shadow: 5px 5px 0px #000000;">
-                    PİKSALİNİ GÖRÜNTÜLE
+                    PİKSELİNİ GÖRÜNTÜLE
                   </a>
                 </div>
 

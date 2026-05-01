@@ -658,8 +658,8 @@ app.post('/api/payment/paytr-token', async (req, res) => {
     const user_name = title || 'Müşteri';
     const user_address = 'Türkiye';
     const user_phone = '05555555555';
-    const merchant_ok_url = process.env.PAYTR_MERCHANT_OK_URL || 'http://localhost:5173/basarili';
-    const merchant_fail_url = process.env.PAYTR_MERCHANT_FAIL_URL || 'http://localhost:5173/hata';
+    const merchant_ok_url  = (process.env.PAYTR_MERCHANT_OK_URL  || 'http://localhost:5173/basarili') + `?oid=${merchant_oid}`;
+    const merchant_fail_url = (process.env.PAYTR_MERCHANT_FAIL_URL || 'http://localhost:5173/hata')     + `?oid=${merchant_oid}`;
     const user_basket = Buffer.from(JSON.stringify([
       [`Milyonluk Piksel Alanı (${w*10}x${h*10})`, price.toString(), 1]
     ])).toString('base64');
@@ -906,7 +906,11 @@ app.post('/api/payment/paytr-callback', paytrCallbackRateLimiter, async (req, re
 app.get('/api/payment/order-status/:oid', async (req, res) => {
   try {
     const oid = normalizeString(req.params.oid);
-    if (!/^MP\d+[A-F0-9]{8}$/.test(oid)) {
+    // OID format: 'MP' + Date.now() (13 rakam) + randomBytes(4).hex.toUpperCase() (8 karakter [0-9A-F])
+    // Örnek: MP1746134567890A1B2C3D4E  (toplam ~23 karakter)
+    // Eski regex (^MP\d+[A-F0-9]{8}$) kırıktı: \d+ greedy olduğu için hex kısımdaki
+    // rakamları da yutuyordu ve ~%62 ihtimalle 400 dönüyordu.
+    if (!/^MP\d{10,16}[A-F0-9]{8}$/.test(oid)) {
       res.status(400).json({ error: 'Geçersiz sipariş numarası' });
       return;
     }
@@ -919,7 +923,7 @@ app.get('/api/payment/order-status/:oid', async (req, res) => {
 
     const { data: order, error } = await supabase
       .from('orders')
-      .select('status')
+      .select('status, image_url')
       .eq('merchant_oid', oid)
       .single();
 
@@ -928,7 +932,7 @@ app.get('/api/payment/order-status/:oid', async (req, res) => {
       return;
     }
 
-    res.json({ status: order.status });
+    res.json({ status: order.status, imageUrl: order.image_url });
   } catch (error) {
     console.error('Order status error:', error);
     res.status(500).json({ error: 'Sipariş durumu alınamadı' });

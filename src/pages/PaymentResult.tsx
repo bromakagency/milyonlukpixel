@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+﻿import { useEffect, useState, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { XCircle, Copy, Twitter, Link as LinkIcon, Check, Download, Share2 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
@@ -20,15 +20,27 @@ export function PaymentResult() {
   
   // Sadece localStorage'da değer varsa al, yoksa null
   const [areaId] = useState(() => {
-    return localStorage.getItem('lastPurchasedId');
+    const stored = localStorage.getItem('lastPurchasedId');
+    if (stored) return stored;
+    // localStorage yoksa (farkli tab/browser) OID'nin son 8 karakterinden turetelim
+    const params = new URLSearchParams(window.location.search);
+    const oid = params.get('oid');
+    if (oid && oid.length >= 8) {
+      const hash = oid.slice(-8);
+      return 'PXL-' + hash.slice(0, 4) + '-' + hash.slice(4);
+    }
+    return null;
   });
 
-  const [userLogo] = useState(() => {
+  const [userLogo, setUserLogo] = useState(() => {
     return localStorage.getItem('lastPurchasedLogo');
   });
 
   const [merchantOid] = useState(() => {
-    return localStorage.getItem('lastMerchantOid');
+    // Once URL param'dan oku: PayTR bizi merchant_ok_url?oid=MP... ile redirect ediyor
+    // Bulamazsa localStorage'a fallback yap (ayni sekme akisi veya eski versiyon)
+    const params = new URLSearchParams(window.location.search);
+    return params.get('oid') || localStorage.getItem('lastMerchantOid');
   });
 
   const [base64Logo, setBase64Logo] = useState<string | null>(null);
@@ -41,7 +53,9 @@ export function PaymentResult() {
     }
 
     // Eğer başarılı sayfasındaysa ama localStorage'da ID yoksa (direkt URL'den girildiyse)
-    if (isSuccess && (!areaId || !merchantOid)) {
+    // merchantOid yoksa redirect et (areaId display-only, kritik degil)
+    // Not: URL'den ?oid= parametresi geldiyse merchantOid localStorage'a gerek kalmadan dolar
+    if (isSuccess && !merchantOid) {
       window.location.href = '/';
     }
   }, [isSuccess, areaId, merchantOid]);
@@ -62,6 +76,10 @@ export function PaymentResult() {
 
         if (res.ok && json.status === 'paid') {
           setPaymentStatus('paid');
+          // localStorage bos olabilir (farkli tab/browser); API'dan gelen logoyu kullan
+          if (json.imageUrl) {
+            setUserLogo(prev => prev || json.imageUrl);
+          }
           return;
         }
 
@@ -208,7 +226,7 @@ export function PaymentResult() {
   const downloadCard = async () => {
     if (!cardRef.current) return;
     if (userLogo && logoLoading) {
-      alert('Logo haz�rlan�yor. L�tfen birka� saniye sonra tekrar deneyin.');
+      alert('Logo hazırlanıyor. Lütfen birkaç saniye sonra tekrar deneyin.');
       return;
     }
 
@@ -222,11 +240,11 @@ export function PaymentResult() {
       link.click();
     } catch (error) {
       console.error('Kart indirilemedi:', error);
-      alert('Kart indirilirken bir hata olu�tu. L�tfen farkl� bir taray�c�da deneyin.');
+      alert('Kart indirilirken bir hata oluştu. Lütfen farklı bir tarayıcıda deneyin.');
     }
   };
   // Eğer başarılı sayfasındaysa ve ID yoksa render etme (redirect olacak zaten)
-  if (isSuccess && (!areaId || !merchantOid)) {
+  if (isSuccess && !merchantOid) {
     return null;
   }
 
