@@ -288,6 +288,62 @@ app.get('/api/admin/me', async (req, res) => {
   }
 });
 
+app.get('/api/admin/orders', async (req, res) => {
+  try {
+    const token = getBearerToken(req);
+    if (!token) {
+      res.status(401).json({ error: 'Yetkilendirme gerekli' });
+      return;
+    }
+
+    const service = getSupabaseServiceClient();
+    if (!service) {
+      res.status(500).json({ error: 'Server Supabase service ayarları eksik' });
+      return;
+    }
+
+    const { data: userData, error: userError } = await service.auth.getUser(token);
+    if (userError || !userData?.user) {
+      res.status(401).json({ error: 'Geçersiz oturum', details: userError?.message });
+      return;
+    }
+
+    const { data, error } = await service
+      .from('orders')
+      .select('id, merchant_oid, x, y, w, h, image_url, link_url, title, email, amount, status, created_at, updated_at')
+      .order('created_at', { ascending: false })
+      .limit(300);
+
+    if (error) {
+      console.error('Admin orders error:', error);
+      res.status(500).json({ error: 'Siparişler yüklenemedi' });
+      return;
+    }
+
+    res.json({
+      orders: (data || []).map((order: any) => ({
+        id: order.id,
+        merchantOid: order.merchant_oid,
+        x: order.x,
+        y: order.y,
+        w: order.w,
+        h: order.h,
+        imageUrl: order.image_url,
+        linkUrl: order.link_url,
+        title: order.title,
+        email: order.email,
+        amount: order.amount,
+        status: order.status,
+        createdAt: order.created_at,
+        updatedAt: order.updated_at,
+      })),
+    });
+  } catch (error) {
+    console.error('Admin orders error:', error);
+    res.status(500).json({ error: 'Siparişler yüklenemedi' });
+  }
+});
+
 // Create pixel (admin only)
 app.post('/api/pixels', async (req, res) => {
   try {

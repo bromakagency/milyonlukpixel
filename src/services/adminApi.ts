@@ -13,6 +13,23 @@ export interface ActivityLog {
   timestamp: string;
 }
 
+export interface AdminOrder {
+  id: string;
+  merchantOid: string | null;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  imageUrl: string;
+  linkUrl: string;
+  title: string;
+  email: string | null;
+  amount: number;
+  status: 'pending' | 'paid' | 'failed' | 'rejected';
+  createdAt: string;
+  updatedAt: string | null;
+}
+
 export const adminApi = {
   async login(email: string, password: string): Promise<{ token: string }> {
     const result = await adminService.login(email, password);
@@ -47,6 +64,19 @@ export const adminApi = {
   async getToken(): Promise<string | null> {
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token || null;
+  },
+
+  async getOrders(): Promise<AdminOrder[]> {
+    const token = await this.getToken();
+    if (!token) throw new Error('Geçersiz oturum');
+
+    const res = await fetch('/api/admin/orders', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Siparişler yüklenemedi');
+    return json.orders || [];
   },
 };
 
