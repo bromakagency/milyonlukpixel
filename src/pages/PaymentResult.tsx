@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { XCircle, Copy, Twitter, Link as LinkIcon, Check, Download } from 'lucide-react';
+import { XCircle, Copy, Twitter, Link as LinkIcon, Check, Download, Share2 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 
 const SHARE_CARD_WIDTH = 360;
@@ -12,6 +12,7 @@ export function PaymentResult() {
   const isSuccess = location.pathname.includes('basarili');
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'checking' | 'paid' | 'failed'>(
     isSuccess ? 'checking' : 'failed'
   );
@@ -139,38 +140,91 @@ export function PaymentResult() {
     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
   };
 
-  const downloadCard = async () => {
-    if (!cardRef.current) return;
+  const createCardImage = async () => {
+    if (!cardRef.current) return null;
+
+    return htmlToImage.toPng(cardRef.current, {
+      quality: 1,
+      width: SHARE_CARD_WIDTH,
+      height: SHARE_CARD_HEIGHT,
+      pixelRatio: SHARE_CARD_SCALE,
+      backgroundColor: '#ffffff',
+      filter: (node) => {
+        if (node instanceof HTMLElement && node.dataset.html2canvasIgnore === 'true') {
+          return false;
+        }
+        return true;
+      }
+    });
+  };
+
+  const dataUrlToFile = async (dataUrl: string) => {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    return new File([blob], 'milyonluk-piksel-1080x1920.png', { type: 'image/png' });
+  };
+
+  const handleSystemShare = async () => {
     if (userLogo && logoLoading) {
       alert('Logo hazırlanıyor. Lütfen birkaç saniye sonra tekrar deneyin.');
       return;
     }
-    
+
+    if (!navigator.share) {
+      alert('Bu cihaz doğrudan paylaşımı desteklemiyor. Kartı indirip paylaşabilirsiniz.');
+      return;
+    }
+
+    setSharing(true);
     try {
-      const dataUrl = await htmlToImage.toPng(cardRef.current, {
-        quality: 1,
-        width: SHARE_CARD_WIDTH,
-        height: SHARE_CARD_HEIGHT,
-        pixelRatio: SHARE_CARD_SCALE,
-        backgroundColor: '#ffffff', // Arka planı zorunlu beyaz yapıyoruz (saydamlığı önlemek için)
-        filter: (node) => {
-          if (node instanceof HTMLElement && node.dataset.html2canvasIgnore === 'true') {
-            return false;
-          }
-          return true;
-        }
-      });
-      
+      const dataUrl = await createCardImage();
+      if (!dataUrl) return;
+
+      const file = await dataUrlToFile(dataUrl);
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'Milyonluk Piksel',
+          text: fullCopyText,
+          url: shareUrl,
+          files: [file],
+        });
+      } else {
+        await navigator.share({
+          title: 'Milyonluk Piksel',
+          text: fullCopyText,
+          url: shareUrl,
+        });
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      console.error('System share failed:', error);
+      alert('Paylaşım açılamadı. Kartı indirip manuel paylaşabilirsiniz.');
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const downloadCard = async () => {
+    if (!cardRef.current) return;
+    if (userLogo && logoLoading) {
+      alert('Logo haz�rlan�yor. L�tfen birka� saniye sonra tekrar deneyin.');
+      return;
+    }
+
+    try {
+      const dataUrl = await createCardImage();
+      if (!dataUrl) return;
+
       const link = document.createElement('a');
-      link.download = `milyonluk-piksel-1080x1920.png`;
+      link.download = 'milyonluk-piksel-1080x1920.png';
       link.href = dataUrl;
       link.click();
     } catch (error) {
       console.error('Kart indirilemedi:', error);
-      alert('Kart indirilirken bir hata oluştu. Lütfen farklı bir tarayıcıda deneyin.');
+      alert('Kart indirilirken bir hata olu�tu. L�tfen farkl� bir taray�c�da deneyin.');
     }
   };
-
   // Eğer başarılı sayfasındaysa ve ID yoksa render etme (redirect olacak zaten)
   if (isSuccess && (!areaId || !merchantOid)) {
     return null;
@@ -197,7 +251,7 @@ export function PaymentResult() {
           {/* Card to be downloaded */}
           <div 
             ref={cardRef}
-            className="bg-white p-7 text-center relative overflow-hidden rounded-[28px] mb-6 border-2 border-black flex flex-col justify-between"
+            className="bg-white p-7 text-center relative overflow-hidden mb-6 border-2 border-black flex flex-col justify-between"
             style={{
               backgroundColor: '#ffffff',
               width: SHARE_CARD_WIDTH,
@@ -256,7 +310,6 @@ export function PaymentResult() {
             <div className="border-2 border-black bg-[#ffd700] px-4 py-3 mb-3">
               <span className="font-display font-black text-xl leading-none">milyonlukpiksel.com</span>
             </div>
-            <p className="font-mono text-[11px] text-gray-500 leading-snug">1080x1920 sosyal medya paylaşım kartı</p>
           </div>
 
           {/* Action Buttons (Outside the card, so they don't get snapshotted) */}
@@ -273,6 +326,13 @@ export function PaymentResult() {
               className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 bg-white text-gray-700 border-2 border-gray-200 px-3 py-3 rounded-xl font-bold text-[13px] hover:bg-gray-50 transition-colors brutal-shadow-sm"
             >
               {copiedLink ? <Check className="w-4 h-4 text-green-600" /> : <LinkIcon className="w-4 h-4" />} Metni Kopyala
+            </button>
+
+            <button 
+              onClick={handleSystemShare}
+              className="flex-1 min-w-[140px] flex items-center justify-center gap-1.5 bg-white text-gray-700 border-2 border-black px-3 py-3 rounded-xl font-bold text-[13px] hover:bg-gray-50 transition-colors brutal-shadow-sm"
+            >
+              <Share2 className="w-4 h-4" /> {sharing ? 'Hazırlanıyor...' : 'Paylaş'}
             </button>
 
             <button 
@@ -308,3 +368,4 @@ export function PaymentResult() {
     </div>
   );
 }
+
