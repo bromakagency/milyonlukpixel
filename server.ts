@@ -63,6 +63,14 @@ const uploadRateLimiter = rateLimit({
   message: { error: 'Çok fazla dosya yükleme denemesi. Lütfen biraz bekleyin.' },
 });
 
+const imageProxyRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Çok fazla görsel proxy isteği. Lütfen biraz bekleyin.' },
+});
+
 function getBearerToken(req: express.Request): string | null {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
@@ -909,7 +917,7 @@ app.get('/api/payment/order-status/:oid', async (req, res) => {
   }
 });
 
-app.get('/api/proxy-image', async (req, res) => {
+app.get('/api/proxy-image', imageProxyRateLimiter, async (req, res) => {
   const imageUrl = req.query.url as string;
   
   if (!imageUrl) {
@@ -939,11 +947,21 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 
   // Sadece kendi domainlerimizden gelen URL'lere izin ver (güvenlik)
-  const allowedDomain = process.env.R2_PUBLIC_URL || 'cdn.milyonlukpiksel.com';
-  if (false && !imageUrl.startsWith('https://cdn.milyonlukpiksel.com') && 
-      !imageUrl.startsWith('https://www.milyonlukpiksel.com') &&
-      !imageUrl.startsWith('https://milyonlukpiksel.com') &&
-      !imageUrl.startsWith(allowedDomain)) {
+  const allowedOrigins = new Set([
+    'https://cdn.milyonlukpiksel.com',
+    'https://www.milyonlukpiksel.com',
+    'https://milyonlukpiksel.com',
+  ]);
+
+  if (process.env.R2_PUBLIC_URL) {
+    try {
+      allowedOrigins.add(new URL(process.env.R2_PUBLIC_URL).origin);
+    } catch {
+      console.warn('Invalid R2_PUBLIC_URL for proxy allowlist');
+    }
+  }
+
+  if (!allowedOrigins.has(parsedUrl.origin)) {
     return res.status(403).json({ error: 'Bu domain için proxy kullanılamaz' });
   }
 
