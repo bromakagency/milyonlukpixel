@@ -965,7 +965,7 @@ app.get('/api/proxy-image', imageProxyRateLimiter, async (req, res) => {
   }
 
   // Sadece kendi domainlerimizden gelen URL'lere izin ver (güvenlik)
-  const allowedOrigins = new Set([
+  const ownOrigins = new Set([
     'https://cdn.milyonlukpiksel.com',
     'https://www.milyonlukpiksel.com',
     'https://milyonlukpiksel.com',
@@ -973,14 +973,14 @@ app.get('/api/proxy-image', imageProxyRateLimiter, async (req, res) => {
 
   if (process.env.R2_PUBLIC_URL) {
     try {
-      allowedOrigins.add(new URL(process.env.R2_PUBLIC_URL).origin);
+      ownOrigins.add(new URL(process.env.R2_PUBLIC_URL).origin);
     } catch {
       console.warn('Invalid R2_PUBLIC_URL for proxy allowlist');
     }
   }
 
-  if (!allowedOrigins.has(parsedUrl.origin)) {
-    return res.status(403).json({ error: 'Bu domain için proxy kullanılamaz' });
+  if (!ownOrigins.has(parsedUrl.origin) && parsedUrl.protocol !== 'https:') {
+    return res.status(403).json({ error: 'Harici gorsel proxy icin HTTPS gerekli' });
   }
 
   try {
