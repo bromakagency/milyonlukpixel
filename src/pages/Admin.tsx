@@ -159,6 +159,27 @@ navigate('/ers-admin/login');
     }
   };
 
+  const handleDeleteOrder = async (order: AdminOrder) => {
+    if (!confirm(`"${order.title || order.merchantOid || 'Seçili sipariş'}" siparişi silinsin mi?`)) return;
+    try {
+      await adminApi.deleteOrder(order.id);
+      await loadData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Sipariş silinemedi');
+    }
+  };
+
+  const handleDeleteFilteredOrders = async () => {
+    if (filteredOrders.length === 0) return;
+    if (!confirm(`${filteredOrders.length} filtrelenmiş sipariş silinsin mi? Bu işlem gelir grafiğinden de düşürür.`)) return;
+    try {
+      await Promise.all(filteredOrders.map((order) => adminApi.deleteOrder(order.id)));
+      await loadData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Siparişler silinemedi');
+    }
+  };
+
   const isWithinDateFilter = (value: string | undefined, filter: DateFilter) => {
     if (filter === 'all' || !value) return true;
     const date = new Date(value).getTime();
@@ -797,6 +818,13 @@ navigate('/ers-admin/login');
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleDeleteFilteredOrders}
+                  disabled={filteredOrders.length === 0}
+                  className="border-2 border-black bg-red-600 px-3 py-2 font-mono text-xs font-bold uppercase text-white hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-600 disabled:cursor-not-allowed"
+                >
+                  Filtrelenenleri Sil
+                </button>
                 {(['all', 'pending', 'paid', 'failed', 'rejected'] as OrderStatusFilter[]).map((status) => (
                   <button
                     key={status}
@@ -832,6 +860,7 @@ navigate('/ers-admin/login');
                     <th className="text-left font-mono text-xs text-gray-500 uppercase p-2">Boyut</th>
                     <th className="text-left font-mono text-xs text-gray-500 uppercase p-2">Tutar</th>
                     <th className="text-left font-mono text-xs text-gray-500 uppercase p-2">Tarih</th>
+                    <th className="text-left font-mono text-xs text-gray-500 uppercase p-2">İşlem</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -855,11 +884,20 @@ navigate('/ers-admin/login');
                       <td className="font-mono text-sm text-gray-500 p-2">
                         {order.createdAt ? new Date(order.createdAt).toLocaleDateString('tr-TR') : '-'}
                       </td>
+                      <td className="p-2">
+                        <button
+                          onClick={() => handleDeleteOrder(order)}
+                          className="p-2 bg-red-500 hover:bg-red-600 text-white border-2 border-black brutal-shadow-sm transition-colors"
+                          title="Siparişi sil"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center font-mono text-sm text-gray-500 p-8">
+                      <td colSpan={8} className="text-center font-mono text-sm text-gray-500 p-8">
                         Filtrelere uygun sipariş yok
                       </td>
                     </tr>

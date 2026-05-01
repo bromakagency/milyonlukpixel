@@ -78,6 +78,27 @@ export const adminApi = {
     if (!res.ok) throw new Error(json.error || 'Siparişler yüklenemedi');
     return json.orders || [];
   },
+
+  async deleteOrder(id: string): Promise<void> {
+    const token = await this.getToken();
+    if (!token) throw new Error('Geçersiz oturum');
+
+    const res = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.ok) return;
+
+    let msg = 'Sipariş silinemedi';
+    try {
+      const body = await res.json();
+      if (body?.error) msg = String(body.error);
+    } catch {
+      // ignore JSON parse
+    }
+    throw new Error(msg);
+  },
 };
 
 export interface LogFilter {

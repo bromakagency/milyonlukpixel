@@ -41,7 +41,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, pg_temp;
 
 CREATE TRIGGER pixels_overlap_trigger
   BEFORE INSERT OR UPDATE ON pixels
@@ -67,7 +67,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, pg_temp;
 
 -- Admins Tablosu - Admin hesapları
 CREATE TABLE admins (

@@ -388,6 +388,50 @@ app.get('/api/admin/orders', async (req, res) => {
   }
 });
 
+app.delete('/api/admin/orders/:id', async (req, res) => {
+  try {
+    const token = getBearerToken(req);
+    if (!token) {
+      res.status(401).json({ error: 'Yetkilendirme gerekli' });
+      return;
+    }
+
+    const service = getSupabaseServiceClient();
+    if (!service) {
+      res.status(500).json({ error: 'Server Supabase service ayarları eksik' });
+      return;
+    }
+
+    const { data: userData, error: userError } = await service.auth.getUser(token);
+    if (userError || !userData?.user) {
+      res.status(401).json({ error: 'Geçersiz oturum', details: userError?.message });
+      return;
+    }
+
+    const { data: deletedRows, error: deleteError } = await service
+      .from('orders')
+      .delete()
+      .eq('id', req.params.id)
+      .select('id');
+
+    if (deleteError) {
+      console.error('Admin order delete error:', deleteError);
+      res.status(400).json({ error: 'Sipariş silinemedi', details: deleteError.message });
+      return;
+    }
+
+    if (!deletedRows || deletedRows.length === 0) {
+      res.status(404).json({ error: 'Sipariş bulunamadı' });
+      return;
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Admin order delete error:', error);
+    res.status(500).json({ error: 'Sipariş silinemedi' });
+  }
+});
+
 // Create pixel (admin only)
 app.post('/api/pixels', async (req, res) => {
   try {

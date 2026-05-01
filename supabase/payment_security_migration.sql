@@ -62,7 +62,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = public, pg_temp;
 
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
