@@ -8,6 +8,7 @@ export interface PixelBlock {
   linkUrl: string;
   title: string;
   createdAt?: string;
+  status?: string;
 }
 
 export interface PixelFormData {

@@ -8,6 +8,9 @@ export function PaymentResult() {
   const isSuccess = location.pathname.includes('basarili');
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'checking' | 'paid' | 'failed'>(
+    isSuccess ? 'checking' : 'failed'
+  );
   const cardRef = useRef<HTMLDivElement>(null);
   
   // Sadece localStorage'da değer varsa al, yoksa null
@@ -19,6 +22,10 @@ export function PaymentResult() {
     return localStorage.getItem('lastPurchasedLogo');
   });
 
+  const [merchantOid] = useState(() => {
+    return localStorage.getItem('lastMerchantOid');
+  });
+
   const [base64Logo, setBase64Logo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,10 +35,51 @@ export function PaymentResult() {
     }
 
     // Eğer başarılı sayfasındaysa ama localStorage'da ID yoksa (direkt URL'den girildiyse)
-    if (isSuccess && !areaId) {
+    if (isSuccess && (!areaId || !merchantOid)) {
       window.location.href = '/';
     }
-  }, [isSuccess, areaId]);
+  }, [isSuccess, areaId, merchantOid]);
+
+  useEffect(() => {
+    if (!isSuccess || !merchantOid) return;
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const checkOrder = async () => {
+      attempts += 1;
+      try {
+        const res = await fetch(`/api/payment/order-status/${encodeURIComponent(merchantOid)}`);
+        const json = await res.json();
+
+        if (cancelled) return;
+
+        if (res.ok && json.status === 'paid') {
+          setPaymentStatus('paid');
+          return;
+        }
+
+        if (res.ok && ['failed', 'rejected'].includes(json.status)) {
+          setPaymentStatus('failed');
+          return;
+        }
+      } catch (error) {
+        console.error('Payment status check failed:', error);
+      }
+
+      if (!cancelled && attempts < 10) {
+        setTimeout(checkOrder, 1500);
+      } else if (!cancelled) {
+        setPaymentStatus('failed');
+      }
+    };
+
+    checkOrder();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSuccess, merchantOid]);
 
   useEffect(() => {
     if (userLogo) {
@@ -106,13 +154,27 @@ export function PaymentResult() {
   };
 
   // Eğer başarılı sayfasındaysa ve ID yoksa render etme (redirect olacak zaten)
-  if (isSuccess && !areaId) {
+  if (isSuccess && (!areaId || !merchantOid)) {
     return null;
+  }
+
+  if (isSuccess && paymentStatus === 'checking') {
+    return (
+      <div className="min-h-screen bg-[#f4f4f0] flex flex-col items-center justify-center p-4 selection:bg-red-600 selection:text-white">
+        <div className="bg-white border-4 border-black brutal-shadow max-w-md w-full p-8 text-center space-y-4">
+          <Check className="h-16 w-16 text-green-600 mx-auto" />
+          <h1 className="font-display font-black text-3xl uppercase">Ödeme Kontrol Ediliyor</h1>
+          <p className="font-mono text-gray-600">
+            Banka onayı doğrulanıyor. Bu işlem birkaç saniye sürebilir.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-[#f4f4f0] flex flex-col items-center justify-center p-4 selection:bg-red-600 selection:text-white">
-      {isSuccess ? (
+      {isSuccess && paymentStatus === 'paid' ? (
         <div className="flex flex-col items-center w-full max-w-[440px]">
           {/* Card to be downloaded */}
           <div 

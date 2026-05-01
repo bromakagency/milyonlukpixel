@@ -5,13 +5,17 @@
 -- Pixels Tablosu - Satılan pixel blokları
 CREATE TABLE pixels (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  x INTEGER NOT NULL CHECK (x >= 0 AND x <= 99),
-  y INTEGER NOT NULL CHECK (y >= 0 AND y <= 99),
-  w INTEGER NOT NULL CHECK (w >= 1 AND w <= 100),
-  h INTEGER NOT NULL CHECK (h >= 1 AND h <= 100),
+  x INTEGER NOT NULL CHECK (x >= 0 AND x <= 124),
+  y INTEGER NOT NULL CHECK (y >= 0 AND y <= 79),
+  w INTEGER NOT NULL CHECK (w >= 1 AND w <= 125),
+  h INTEGER NOT NULL CHECK (h >= 1 AND h <= 80),
   image_url TEXT NOT NULL,
   link_url TEXT NOT NULL,
   title TEXT NOT NULL,
+  status TEXT DEFAULT 'approved' CHECK (status IN ('approved', 'rejected')),
+  merchant_oid TEXT UNIQUE,
+  user_email TEXT,
+  price INTEGER,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -26,6 +30,8 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM pixels p
     WHERE p.id != NEW.id
+      AND COALESCE(p.status, 'approved') = 'approved'
+      AND COALESCE(NEW.status, 'approved') = 'approved'
       AND NEW.x < p.x + p.w
       AND NEW.x + NEW.w > p.x
       AND NEW.y < p.y + p.h
@@ -69,6 +75,7 @@ CREATE TABLE activity_logs (
 -- Orders Tablosu (gelecekte ödeme için)
 CREATE TABLE orders (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  merchant_oid TEXT UNIQUE,
   x INTEGER NOT NULL,
   y INTEGER NOT NULL,
   w INTEGER NOT NULL,
@@ -79,16 +86,19 @@ CREATE TABLE orders (
   email TEXT,
   customer_name TEXT,
   amount INTEGER NOT NULL DEFAULT 100,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'paid')),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'failed', 'rejected', 'paid')),
+  details JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- İndeksler
 CREATE INDEX idx_pixels_created_at ON pixels(created_at DESC);
+CREATE INDEX idx_pixels_status ON pixels(status);
 CREATE INDEX idx_activity_logs_timestamp ON activity_logs(timestamp DESC);
 CREATE INDEX idx_activity_logs_action ON activity_logs(action);
 CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_orders_merchant_oid ON orders(merchant_oid);
 CREATE INDEX idx_orders_created_at ON orders(created_at DESC);
 
 -- RLS (Row Level Security) - Satır bazlı güvenlik

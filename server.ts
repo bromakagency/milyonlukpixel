@@ -54,6 +54,110 @@ function getSupabaseServiceClient() {
   });
 }
 
+type PixelArea = { id?: string; x: number; y: number; w: number; h: number };
+
+const GRID_BLOCKS_X = 125;
+const GRID_BLOCKS_Y = 80;
+const PENDING_ORDER_TTL_MINUTES = 35;
+
+function normalizeString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeNumber(value: unknown): number {
+  return typeof value === 'number' ? value : Number(value);
+}
+
+function normalizeUserIp(req: express.Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return (raw?.split(',')[0]?.trim() || req.socket.remoteAddress || '1.1.1.1').replace('::ffff:', '');
+}
+
+function areasOverlap(a: PixelArea, b: PixelArea): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function validatePurchasePayload(body: Record<string, unknown>): {
+  ok: true;
+  data: { x: number; y: number; w: number; h: number; imageUrl: string; linkUrl: string; title: string; email: string };
+} | { ok: false; error: string } {
+  const x = normalizeNumber(body.x);
+  const y = normalizeNumber(body.y);
+  const w = normalizeNumber(body.w);
+  const h = normalizeNumber(body.h);
+  const imageUrl = normalizeString(body.imageUrl);
+  const linkUrl = normalizeString(body.linkUrl);
+  const title = normalizeString(body.title);
+  const email = normalizeString(body.email).toLowerCase();
+
+  if (!Number.isInteger(x) || x < 0 || x > GRID_BLOCKS_X - 1) return { ok: false, error: 'Geçersiz X koordinatı' };
+  if (!Number.isInteger(y) || y < 0 || y > GRID_BLOCKS_Y - 1) return { ok: false, error: 'Geçersiz Y koordinatı' };
+  if (!Number.isInteger(w) || w < 1 || w > GRID_BLOCKS_X) return { ok: false, error: 'Geçersiz genişlik' };
+  if (!Number.isInteger(h) || h < 1 || h > GRID_BLOCKS_Y) return { ok: false, error: 'Geçersiz yükseklik' };
+  if (x + w > GRID_BLOCKS_X || y + h > GRID_BLOCKS_Y) return { ok: false, error: 'Seçilen alan grid sınırlarını aşıyor' };
+  if (title.length < 1 || title.length > 100) return { ok: false, error: 'Başlık 1-100 karakter olmalı' };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, error: 'Geçerli bir e-posta adresi girin' };
+
+  try {
+    const parsedImageUrl = new URL(imageUrl);
+    if (!['http:', 'https:'].includes(parsedImageUrl.protocol)) throw new Error('bad protocol');
+  } catch {
+    return { ok: false, error: 'Geçerli bir görsel URL girin' };
+  }
+
+  try {
+    const parsedLinkUrl = new URL(linkUrl);
+    if (!['http:', 'https:'].includes(parsedLinkUrl.protocol)) throw new Error('bad protocol');
+  } catch {
+    return { ok: false, error: 'Geçerli bir hedef link girin' };
+  }
+
+  return { ok: true, data: { x, y, w, h, imageUrl, linkUrl, title, email } };
+}
+
+async function assertAreaAvailable(
+  supabase: any,
+  requested: PixelArea,
+  currentOrderId?: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: pixels, error: pixelError } = await supabase
+    .from('pixels')
+    .select('id, x, y, w, h')
+    .eq('status', 'approved');
+
+  if (pixelError) {
+    console.error('Pixel availability check failed:', pixelError);
+    return { ok: false, error: 'Alan uygunluğu kontrol edilemedi' };
+  }
+
+  if ((pixels || []).some((pixel: PixelArea) => areasOverlap(requested, pixel))) {
+    return { ok: false, error: 'Bu alan zaten satın alınmış' };
+  }
+
+  const reservationCutoff = new Date(Date.now() - PENDING_ORDER_TTL_MINUTES * 60 * 1000).toISOString();
+  const { data: orders, error: orderError } = await supabase
+    .from('orders')
+    .select('id, x, y, w, h')
+    .eq('status', 'pending')
+    .gte('created_at', reservationCutoff);
+
+  if (orderError) {
+    console.error('Order reservation check failed:', orderError);
+    if (orderError.code === 'PGRST205' || String(orderError.message || '').includes("public.orders")) {
+      return { ok: false, error: 'Ödeme altyapısı için veritabanı migration eksik: public.orders tablosu bulunamadı.' };
+    }
+    return { ok: false, error: 'Rezervasyon kontrolü yapılamadı' };
+  }
+
+  const conflicts = (orders || []).filter((order: PixelArea) => order.id !== currentOrderId);
+  if (conflicts.some((order: PixelArea) => areasOverlap(requested, order))) {
+    return { ok: false, error: 'Bu alan için ödeme işlemi devam ediyor. Biraz sonra tekrar deneyin.' };
+  }
+
+  return { ok: true };
+}
+
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? process.env.ALLOWED_ORIGIN 
@@ -187,31 +291,73 @@ app.get('/api/admin/me', async (req, res) => {
 // Create pixel (admin only)
 app.post('/api/pixels', async (req, res) => {
   try {
+    const token = getBearerToken(req);
+    if (!token) {
+      res.status(401).json({ error: 'Yetkilendirme gerekli' });
+      return;
+    }
+
+    const service = getSupabaseServiceClient();
+    if (!service) {
+      res.status(500).json({ error: 'Server Supabase service ayarları eksik' });
+      return;
+    }
+
+    const { data: userData, error: userError } = await service.auth.getUser(token);
+    if (userError || !userData?.user) {
+      res.status(401).json({ error: 'Geçersiz oturum', details: userError?.message });
+      return;
+    }
+
     const { x, y, w, h, imageUrl, linkUrl, title } = req.body;
-    
-    const pixel = await db.pixels.create({
-      x, y, w, h,
-      image_url: imageUrl,
-      link_url: linkUrl,
-      title,
-    });
-    
+    const validation = validatePurchasePayload({ x, y, w, h, imageUrl, linkUrl, title, email: userData.user.email || 'admin@milyonlukpiksel.com' });
+    if (validation.ok === false) {
+      res.status(400).json({ error: validation.error });
+      return;
+    }
+
+    const availability = await assertAreaAvailable(service, validation.data);
+    if (availability.ok === false) {
+      res.status(409).json({ error: availability.error });
+      return;
+    }
+
+    const { data: pixel, error: insertError } = await service.from('pixels').insert({
+      x: validation.data.x,
+      y: validation.data.y,
+      w: validation.data.w,
+      h: validation.data.h,
+      image_url: validation.data.imageUrl,
+      link_url: validation.data.linkUrl,
+      title: validation.data.title,
+      status: 'approved',
+      user_email: userData.user.email,
+      price: validation.data.w * validation.data.h * 100,
+    }).select().single();
+
+    if (insertError || !pixel) {
+      throw insertError || new Error('Pixel oluşturulamadı');
+    }
+
     // Activity log (best effort)
     try {
       const logService = getSupabaseServiceClient();
       await logService?.from('activity_logs').insert({
         action: 'PIXEL_CREATE',
-        description: `Pixel eklendi: ${title}`,
+        description: `Pixel eklendi: ${validation.data.title}`,
       });
     } catch (_) {}
     
     // Send email notification to admin
     emailService.sendNewPixelNotification({
-      title,
-      x, y, w, h,
-      imageUrl,
-      linkUrl,
-      amount: w * h * 100,
+      title: validation.data.title,
+      x: validation.data.x,
+      y: validation.data.y,
+      w: validation.data.w,
+      h: validation.data.h,
+      imageUrl: validation.data.imageUrl,
+      linkUrl: validation.data.linkUrl,
+      amount: validation.data.w * validation.data.h * 100,
     });
     
     res.status(201).json({
@@ -304,13 +450,19 @@ app.get('/api/stats', async (req, res) => {
 // ── PayTR Ödeme Entegrasyonu ──────────────────────────────────────────────────
 app.post('/api/payment/paytr-token', async (req, res) => {
   try {
-    const { x, y, w, h, imageUrl, linkUrl, title, email } = req.body;
-    
-    // Validate
-    if (!w || !h || !imageUrl) return res.status(400).json({ error: 'Eksik veri' });
+    const validation = validatePurchasePayload(req.body);
+    if (validation.ok === false) {
+      return res.status(400).json({ error: validation.error });
+    }
+    const { x, y, w, h, imageUrl, linkUrl, title, email } = validation.data;
 
     const supabase = getSupabaseServiceClient();
     if (!supabase) return res.status(500).json({ error: 'Supabase servisi yok' });
+
+    const availability = await assertAreaAvailable(supabase, { x, y, w, h });
+    if (availability.ok === false) {
+      return res.status(409).json({ error: availability.error });
+    }
 
     const merchant_id = process.env.PAYTR_MERCHANT_ID;
     const merchant_key = process.env.PAYTR_MERCHANT_KEY;
@@ -320,11 +472,12 @@ app.post('/api/payment/paytr-token', async (req, res) => {
       return res.status(500).json({ error: 'PayTR bilgileri eksik' });
     }
 
-    const payment_amount = (w * h * 100) * 100; // 1 blok = 100TL = 10000 kuruş
-    const merchant_oid = 'MP' + Date.now() + Math.floor(Math.random() * 1000);
-    const user_ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '1.1.1.1';
+    const price = w * h * 100;
+    const payment_amount = price * 100; // 1 blok = 100TL = 10000 kuruş
+    const merchant_oid = 'MP' + Date.now() + crypto.randomBytes(4).toString('hex').toUpperCase();
+    const user_ip = normalizeUserIp(req);
     
-    const user_email = email || 'customer@milyonlukpiksel.com';
+    const user_email = email;
     const user_name = title || 'Müşteri';
     const user_address = 'Türkiye';
     const user_phone = '05555555555';
@@ -335,27 +488,27 @@ app.post('/api/payment/paytr-token', async (req, res) => {
     ])).toString('base64');
     
     const timeout_limit = '30';
-    const debug_on = '1'; 
-    const test_mode = '1'; 
+    const debug_on = process.env.PAYTR_DEBUG_ON || (process.env.NODE_ENV === 'production' ? '0' : '1');
+    const test_mode = process.env.PAYTR_TEST_MODE || (process.env.NODE_ENV === 'production' ? '0' : '1');
     const no_installment = '0';
     const max_installment = '0';
     const currency = 'TL';
 
     // DB'ye bekliyor (pending) durumunda kaydet
-    const { data: pixel, error: dbError } = await supabase.from('pixels').insert({
+    const { data: order, error: dbError } = await supabase.from('orders').insert({
       x, y, w, h,
       image_url: imageUrl,
       link_url: linkUrl,
       title,
+      email: user_email,
+      amount: price,
       status: 'pending',
       merchant_oid,
-      user_email,
-      price: w * h * 100
     }).select().single();
 
-    if (dbError) {
-      console.error('DB Insert Error:', dbError);
-      return res.status(400).json({ error: 'Piksel kaydedilemedi. Zaten alınmış olabilir.' });
+    if (dbError || !order) {
+      console.error('Order Insert Error:', dbError);
+      return res.status(400).json({ error: 'Ödeme kaydı oluşturulamadı. Alan başka bir işlemde olabilir.' });
     }
 
     // PayTR Iframe API (Pro)
@@ -367,7 +520,7 @@ app.post('/api/payment/paytr-token', async (req, res) => {
 
     const params = new URLSearchParams();
     params.append('merchant_id', merchant_id);
-    params.append('user_ip', user_ip as string);
+    params.append('user_ip', user_ip);
     params.append('merchant_oid', merchant_oid);
     params.append('email', user_email);
     params.append('payment_amount', payment_amount.toString());
@@ -397,7 +550,11 @@ app.post('/api/payment/paytr-token', async (req, res) => {
       res.json({ token: result.token, oid: merchant_oid });
     } else {
       console.error('PayTR Token Error:', result);
-      await supabase.from('pixels').delete().eq('merchant_oid', merchant_oid);
+      await supabase.from('orders').update({
+        status: 'failed',
+        details: { paytr_reason: result.reason || null },
+        updated_at: new Date().toISOString(),
+      }).eq('merchant_oid', merchant_oid);
       res.status(500).json({ error: result.reason || 'Ödeme sistemi başlatılamadı' });
     }
   } catch (error) {
@@ -428,20 +585,105 @@ app.post('/api/payment/paytr-callback', async (req, res) => {
     const supabase = getSupabaseServiceClient();
     if (!supabase) return res.status(500).send('DB Error');
 
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('merchant_oid', merchant_oid)
+      .single();
+
+    if (orderError || !order) {
+      console.error('PayTR order not found:', merchant_oid, orderError);
+      return res.status(200).send('OK');
+    }
+
+    const expectedAmount = Number(order.amount) * 100;
+    if (Number(total_amount) !== expectedAmount) {
+      console.error('PAYTR AMOUNT MISMATCH:', { merchant_oid, expectedAmount, total_amount });
+      await supabase.from('orders').update({
+        status: 'rejected',
+        details: {
+          ...(order.details || {}),
+          rejected_reason: 'amount_mismatch',
+          total_amount,
+          expected_amount: expectedAmount,
+        },
+        updated_at: new Date().toISOString(),
+      }).eq('id', order.id);
+      return res.status(200).send('OK');
+    }
+
     if (status === 'success') {
       // Payment Successful
-      await supabase.from('pixels')
-        .update({ status: 'approved' })
-        .eq('merchant_oid', merchant_oid);
+      if (order.status === 'paid') {
+        return res.status(200).send('OK');
+      }
+
+      const availability = await assertAreaAvailable(
+        supabase,
+        { x: order.x, y: order.y, w: order.w, h: order.h },
+        order.id
+      );
+
+      if (availability.ok === false) {
+        console.error('Paid order area unavailable:', { merchant_oid, error: availability.error });
+        await supabase.from('orders').update({
+          status: 'rejected',
+          details: {
+            ...(order.details || {}),
+            rejected_reason: 'area_unavailable_after_payment',
+            paytr_status: status,
+            total_amount,
+            test_mode,
+          },
+          updated_at: new Date().toISOString(),
+        }).eq('id', order.id);
+        return res.status(200).send('OK');
+      }
 
       // E-posta gönderimi vs.
-      const { data: pixel } = await supabase.from('pixels').select('*').eq('merchant_oid', merchant_oid).single();
+      const { data: existingPixel } = await supabase
+        .from('pixels')
+        .select('*')
+        .eq('merchant_oid', merchant_oid)
+        .maybeSingle();
+
+      const { data: pixel, error: pixelError } = existingPixel
+        ? { data: existingPixel, error: null }
+        : await supabase.from('pixels').insert({
+            x: order.x,
+            y: order.y,
+            w: order.w,
+            h: order.h,
+            image_url: order.image_url,
+            link_url: order.link_url,
+            title: order.title,
+            status: 'approved',
+            merchant_oid,
+            user_email: order.email,
+            price: order.amount,
+          }).select().single();
+
+      if (pixelError || !pixel) {
+        console.error('Pixel create after payment failed:', pixelError);
+        return res.status(500).send('DB Error');
+      }
+
+      await supabase.from('orders').update({
+        status: 'paid',
+        details: {
+          ...(order.details || {}),
+          paytr_status: status,
+          total_amount,
+          test_mode,
+        },
+        updated_at: new Date().toISOString(),
+      }).eq('id', order.id);
       if (pixel) {
         emailService.sendNewPixelNotification({
           title: pixel.title,
           x: pixel.x, y: pixel.y, w: pixel.w, h: pixel.h,
           imageUrl: pixel.image_url, linkUrl: pixel.link_url,
-          amount: pixel.price
+          amount: pixel.price || order.amount
         });
         
         try {
@@ -456,9 +698,18 @@ app.post('/api/payment/paytr-callback', async (req, res) => {
       return res.status(200).send('OK');
     } else {
       // Payment Failed
-      await supabase.from('pixels')
-        .update({ status: 'failed' })
-        .eq('merchant_oid', merchant_oid);
+      await supabase.from('orders').update({
+        status: 'failed',
+        details: {
+          ...(order.details || {}),
+          failed_reason_code,
+          failed_reason_msg,
+          paytr_status: status,
+          total_amount,
+          test_mode,
+        },
+        updated_at: new Date().toISOString(),
+      }).eq('id', order.id);
 
       console.log('Payment Failed:', merchant_oid, failed_reason_msg);
       return res.status(200).send('OK');
@@ -472,6 +723,38 @@ app.post('/api/payment/paytr-callback', async (req, res) => {
 // ── Image Proxy (CORS bypass for R2 CDN) ─────────────────────────────────────
 // Frontend'den fetch ettiğimizde R2'nin CORS politikası engeller.
 // Bu endpoint sunucu tarafında görseli çekip client'a iletir.
+app.get('/api/payment/order-status/:oid', async (req, res) => {
+  try {
+    const oid = normalizeString(req.params.oid);
+    if (!/^MP\d+[A-F0-9]{8}$/.test(oid)) {
+      res.status(400).json({ error: 'Geçersiz sipariş numarası' });
+      return;
+    }
+
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) {
+      res.status(500).json({ error: 'Supabase servisi yok' });
+      return;
+    }
+
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('status')
+      .eq('merchant_oid', oid)
+      .single();
+
+    if (error || !order) {
+      res.status(404).json({ error: 'Sipariş bulunamadı' });
+      return;
+    }
+
+    res.json({ status: order.status });
+  } catch (error) {
+    console.error('Order status error:', error);
+    res.status(500).json({ error: 'Sipariş durumu alınamadı' });
+  }
+});
+
 app.get('/api/proxy-image', async (req, res) => {
   const imageUrl = req.query.url as string;
   

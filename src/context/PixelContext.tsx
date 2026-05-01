@@ -28,6 +28,7 @@ function rowToBlock(row: any): PixelBlock {
     linkUrl: row.link_url,
     title: row.title,
     createdAt: row.created_at,
+    status: row.status,
   };
 }
 

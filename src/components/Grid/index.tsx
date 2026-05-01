@@ -43,7 +43,9 @@ function PixelCanvas({
     const rect = e.currentTarget.getBoundingClientRect();
     const { x, y } = getCoordsFromRect(e.clientX, e.clientY, rect);
     if (!isInBounds(x, y)) return;
-    const isOccupied = pixels.some(
+    const isOccupied = pixels
+      .filter((p) => !p.status || p.status === 'approved')
+      .some(
       (p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h
     );
     if (!isOccupied) onPixelSelect(x, y);
@@ -68,7 +70,7 @@ function PixelCanvas({
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setMousePos(null)}
       >
-        {pixels.map((pixel) => (
+        {pixels.filter(p => !p.status || p.status === 'approved').map((pixel) => (
           <a
             key={pixel.id}
             href={pixel.linkUrl}

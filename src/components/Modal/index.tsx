@@ -3,6 +3,7 @@ import { PixelFormData } from '../../types';
 import { validatePixelForm } from '../../utils/validation';
 import { Upload, Link, X, Image, Loader2, ArrowLeft } from 'lucide-react';
 import { api } from '../../services/api';
+import { usePixelContext } from '../../context/PixelContext';
 
 interface ModalProps {
   isOpen: boolean;
@@ -69,6 +70,8 @@ const compressImageToWebP = (file: File): Promise<File> => {
 };
 
 export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps) {
+  const { pixels } = usePixelContext();
+  const approvedPixels = pixels.filter((p) => !p.status || p.status === 'approved');
   const [formData, setFormData] = useState<PixelFormData & { email: string }>({
     x: 0, y: 0, w: 1, h: 1,
     imageUrl: '', linkUrl: '', title: '', email: ''
@@ -78,6 +81,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   const [uploadedPreview, setUploadedPreview] = useState<string>('');
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState('');
+  const [clampWarning, setClampWarning] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentToken, setPaymentToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -112,6 +116,49 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
 
   if (!isOpen || !selectedCoords) return null;
+
+  // ── Anlık clamp hesabı (reaktif, submit beklemez) ──────────────────────
+  const maxW = 125 - selectedCoords.x;
+  const maxH = 80  - selectedCoords.y;
+  let effectiveW = Math.min(Math.max(formData.w || 1, 1), maxW);
+  let effectiveH = Math.min(Math.max(formData.h || 1, 1), maxH);
+
+  // Başka pixellerin üzerine gelmeyi (overlap) engelle
+  let hitPixelW = false;
+  let hitPixelH = false;
+
+  // X yönündeki (sağa doğru) genişlemeyi y'deki kesişimlere göre sınırla
+  let maxWForH = maxW;
+  for (const p of approvedPixels) {
+    // Eğer y ekseninde kesişiyorsak ve bu pixel sağımızdaysa
+    if (selectedCoords.y < p.y + effectiveH && selectedCoords.y + effectiveH > p.y) {
+      if (p.x > selectedCoords.x) {
+        maxWForH = Math.min(maxWForH, p.x - selectedCoords.x);
+      }
+    }
+  }
+  if (effectiveW > maxWForH) {
+    effectiveW = maxWForH;
+    hitPixelW = true;
+  }
+
+  // Y yönündeki (aşağı doğru) genişlemeyi yeni (sınırlandırılmış) x genişliğine göre sınırla
+  let maxHForW = maxH;
+  for (const p of approvedPixels) {
+    // Eğer x ekseninde kesişiyorsak ve bu pixel aşağımızdaysa
+    if (selectedCoords.x < p.x + p.w && selectedCoords.x + effectiveW > p.x) {
+      if (p.y > selectedCoords.y) {
+        maxHForW = Math.min(maxHForW, p.y - selectedCoords.y);
+      }
+    }
+  }
+  if (effectiveH > maxHForW) {
+    effectiveH = maxHForW;
+    hitPixelH = true;
+  }
+
+  const isClamped  = effectiveW !== formData.w || effectiveH !== formData.h;
+  const isPixelCollision = hitPixelW || hitPixelH;
 
   // ── Dosya Yükleme ────────────────────────────────────────────────────────
   const handleFile = async (file: File) => {
@@ -167,13 +214,22 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    setClampWarning('');
 
-    const data = { ...formData, x: selectedCoords.x, y: selectedCoords.y };
+    const x = selectedCoords.x;
+    const y = selectedCoords.y;
+    // effectiveW ve effectiveH render sırasında en güncel limitlere (grid sonu + diğer pikseller) göre hesaplandı.
+    // formData.w veya formData.h farklıysa arka planda güncelleyelim ama asıl submit edilecek data "effective" olanlar.
+    if (isClamped) {
+      setFormData(prev => ({ ...prev, w: effectiveW, h: effectiveH }));
+    }
+
+    const data = { ...formData, x, y, w: effectiveW, h: effectiveH };
     const errors = validatePixelForm(data);
     if (!data.email || !data.email.includes('@')) {
       errors.push('Geçerli bir e-posta adresi girin');
     }
-    
+
     if (errors.length > 0) { setError(errors.join(', ')); return; }
 
     setLoading(true);
@@ -187,6 +243,9 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
       const res = await api.initPayment(data);
       
       if (res.token) {
+        if (res.oid) {
+          localStorage.setItem('lastMerchantOid', res.oid);
+        }
         setPaymentToken(res.token);
       } else {
         setError('Ödeme tokenı alınamadı.');
@@ -205,6 +264,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
       setUploadedPreview('');
       setPaymentToken(null);
       setError('');
+      setClampWarning('');
     }, 200);
   };
 
@@ -278,7 +338,11 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
                   onClick={() => setFormData(prev => ({ ...prev, w: Math.min(125, (prev.w || 0) + 1) }))}
                 >+</button>
               </div>
-              <p className="font-mono text-xs text-gray-600 mt-1 text-center">Genişlik: {formData.w ? formData.w * 10 : 0} px</p>
+              <p className="font-mono text-xs mt-1 text-center">
+                {isClamped && effectiveW !== formData.w
+                  ? <><span className="line-through text-gray-400">{(formData.w||0)*10} px</span> <span className="text-orange-600 font-bold">→ max {effectiveW*10} px</span></>
+                  : <span className="text-gray-600">{effectiveW*10} px</span>}
+              </p>
             </div>
             <div>
               <label className="block font-mono text-xs font-bold uppercase mb-2 text-center">Yükseklik (Blok)</label>
@@ -300,24 +364,40 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
                   onClick={() => setFormData(prev => ({ ...prev, h: Math.min(80, (prev.h || 0) + 1) }))}
                 >+</button>
               </div>
-              <p className="font-mono text-xs text-gray-600 mt-1 text-center">Yükseklik: {formData.h ? formData.h * 10 : 0} px</p>
+              <p className="font-mono text-xs mt-1 text-center">
+                {isClamped && effectiveH !== formData.h
+                  ? <><span className="line-through text-gray-400">{(formData.h||0)*10} px</span> <span className="text-orange-600 font-bold">→ max {effectiveH*10} px</span></>
+                  : <span className="text-gray-600">{effectiveH*10} px</span>}
+              </p>
             </div>
           </div>
 
-          {/* Boyut Uyarısı */}
-          {(formData.w < 3 || formData.h < 3) ? (
+          {/* Anlık Sığdırma + Boyut Uyarısı */}
+          {isClamped ? (
+            <div className={`p-3 border-2 brutal-shadow-sm space-y-1 ${isPixelCollision ? 'bg-purple-50 border-purple-400' : 'bg-orange-50 border-orange-400'}`}>
+              <p className={`font-mono text-xs font-bold flex items-center gap-1.5 ${isPixelCollision ? 'text-purple-800' : 'text-orange-800'}`}>
+                {isPixelCollision ? '🧱 Başka bir piksele çarptınız — alan otomatik sınırlandırıldı' : '📐 Grid köşesine yakınsınız — alan otomatik sınırlandırıldı'}
+              </p>
+              <div className={`flex gap-4 font-mono text-xs ${isPixelCollision ? 'text-purple-700' : 'text-orange-700'}`}>
+                <span>İstediğiniz: <strong>{formData.w}×{formData.h} blok</strong> ({(formData.w||0)*10}×{(formData.h||0)*10} px)</span>
+              </div>
+              <div className="flex gap-4 font-mono text-xs text-green-800 font-bold">
+                <span>✓ Gerçek alan: <strong>{effectiveW}×{effectiveH} blok</strong> ({effectiveW*10}×{effectiveH*10} px)</span>
+              </div>
+            </div>
+          ) : (effectiveW < 3 || effectiveH < 3) ? (
             <div className="flex items-start gap-2 p-3 bg-amber-50 border-2 border-amber-400 brutal-shadow-sm">
               <span className="text-amber-500 mt-0.5">⚠️</span>
               <p className="font-mono text-xs text-amber-800 leading-snug">
                 <strong>Öneri:</strong> Logo okunabilirliği için en az <strong>3×3 blok</strong> önerilir.
-                Şu an <strong>{formData.w * 10}×{formData.h * 10} px</strong> — logonuz çok küçük görünebilir.
+                Şu an <strong>{effectiveW*10}×{effectiveH*10} px</strong> — logonuz çok küçük görünebilir.
               </p>
             </div>
           ) : (
             <div className="flex items-center gap-2 p-3 bg-green-50 border-2 border-green-400 brutal-shadow-sm">
               <span className="text-green-600">✓</span>
               <p className="font-mono text-xs text-green-800">
-                Seçilen alan <strong>{formData.w * 10}×{formData.h * 10} px</strong> — logo net görünecek.
+                Seçilen alan <strong>{effectiveW*10}×{effectiveH*10} px</strong> — logo net görünecek.
               </p>
             </div>
           )}
@@ -461,10 +541,10 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
               <label className="block font-mono text-xs font-bold uppercase mb-2">Canlı Önizleme (Gerçek Boyut)</label>
               <div className="w-full border-2 border-black bg-white p-4 md:p-6 flex flex-col items-center justify-center brutal-shadow-sm">
                 <div 
-                  className="bg-white border border-gray-300 shadow-inner relative overflow-hidden"
+                  className="bg-white border border-gray-300 shadow-inner relative overflow-hidden transition-all duration-200"
                   style={{ 
-                    width: formData.w * 10, 
-                    height: formData.h * 10,
+                    width: effectiveW * 10, 
+                    height: effectiveH * 10,
                     backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h5v5H0zM5 5h5v5H5z\' fill=\'%23f3f4f6\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
                     backgroundRepeat: 'repeat'
                   }}
@@ -476,12 +556,17 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
                     className="w-full h-full object-contain object-center" 
                   />
                 </div>
-                <p className="font-mono text-[11px] text-gray-500 mt-4 text-center max-w-xs leading-relaxed">
-                  Görseliniz grid üzerinde tam olarak bu boyutlarda <strong className="text-black">({formData.w * 10}x{formData.h * 10} px)</strong> görünecektir. Netliğinden emin olun.
+                <p className="font-mono text-[11px] mt-4 text-center max-w-xs leading-relaxed">
+                  {isClamped
+                    ? <><span className="text-orange-600 font-bold">📐 Sığdırıldı:</span> <strong className="text-black">{effectiveW*10}×{effectiveH*10} px</strong> <span className="text-gray-400 line-through">({(formData.w||0)*10}×{(formData.h||0)*10} px)</span></>
+                    : <span className="text-gray-500">Görseliniz grid üzerinde tam olarak <strong className="text-black">({effectiveW*10}×{effectiveH*10} px)</strong> görünecektir.</span>
+                  }
                 </p>
               </div>
             </div>
           )}
+
+
 
           {/* Hata */}
           {error && (
@@ -496,7 +581,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
               disabled={loading || uploading}
               className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-display font-bold text-xl py-4 border-2 border-black brutal-shadow transition-transform active:translate-y-1 active:translate-x-1 active:shadow-none uppercase"
             >
-              {loading ? 'İşleniyor...' : `Güvenli Ödeme Adımına Geç (${(formData.w * formData.h * 100).toLocaleString()} TL)`}
+              {loading ? 'İşleniyor...' : `Güvenli Ödeme Adımına Geç (${(effectiveW * effectiveH * 100).toLocaleString()} TL)`}
             </button>
           </div>
         </form>

@@ -22,6 +22,7 @@ export interface PixelBlock {
   linkUrl: string;
   title: string;
   createdAt?: string;
+  status?: string;
 }
 
 function toPixelBlock(pixel: Pixel): PixelBlock {
@@ -35,6 +36,7 @@ function toPixelBlock(pixel: Pixel): PixelBlock {
     linkUrl: pixel.link_url,
     title: pixel.title,
     createdAt: pixel.created_at,
+    status: pixel.status,
   };
 }
 

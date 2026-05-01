@@ -9,27 +9,27 @@ export function validatePixel(req: Request, res: Response, next: NextFunction): 
   const { x, y, w, h, imageUrl, linkUrl, title } = req.body;
   const errors: ValidationError[] = [];
 
-  if (typeof x !== 'number' || x < 0 || x > 99) {
-    errors.push({ field: 'x', message: 'X koordinatı 0-99 arasında olmalı' });
+  if (typeof x !== 'number' || x < 0 || x > 124) {
+    errors.push({ field: 'x', message: 'X koordinatı 0-124 arasında olmalı' });
   }
 
-  if (typeof y !== 'number' || y < 0 || y > 99) {
-    errors.push({ field: 'y', message: 'Y koordinatı 0-99 arasında olmalı' });
+  if (typeof y !== 'number' || y < 0 || y > 79) {
+    errors.push({ field: 'y', message: 'Y koordinatı 0-79 arasında olmalı' });
   }
 
-  if (typeof w !== 'number' || w < 1 || w > 100) {
-    errors.push({ field: 'w', message: 'Genişlik 1-100 arasında olmalı' });
+  if (typeof w !== 'number' || w < 1 || w > 125) {
+    errors.push({ field: 'w', message: 'Genişlik 1-125 arasında olmalı' });
   }
 
-  if (typeof h !== 'number' || h < 1 || h > 100) {
-    errors.push({ field: 'h', message: 'Yükseklik 1-100 arasında olmalı' });
+  if (typeof h !== 'number' || h < 1 || h > 80) {
+    errors.push({ field: 'h', message: 'Yükseklik 1-80 arasında olmalı' });
   }
 
-  if (x + w > 100) {
+  if (x + w > 125) {
     errors.push({ field: 'x', message: 'Seçilen alan grid sınırlarını aşıyor (X)' });
   }
 
-  if (y + h > 100) {
+  if (y + h > 80) {
     errors.push({ field: 'y', message: 'Seçilen alan grid sınırlarını aşıyor (Y)' });
   }
 

@@ -30,6 +30,10 @@ export interface Pixel {
   image_url: string;
   link_url: string;
   title: string;
+  status?: 'approved' | 'pending' | 'failed' | 'rejected';
+  merchant_oid?: string | null;
+  user_email?: string | null;
+  price?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +70,7 @@ export const db = {
       const { data, error } = await supabase
         .from('pixels')
         .select('*')
+        .eq('status', 'approved')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -77,6 +82,7 @@ export const db = {
         .from('pixels')
         .select('*')
         .eq('id', id)
+        .eq('status', 'approved')
         .single();
       
       if (error) return null;
@@ -210,7 +216,8 @@ export const db = {
     async get(): Promise<Stats> {
       const { data, error } = await supabase
         .from('pixels')
-        .select('w, h');
+        .select('w, h')
+        .eq('status', 'approved');
       
       if (error) throw error;
       
