@@ -3,6 +3,10 @@ import { useLocation, Link } from 'react-router-dom';
 import { XCircle, Copy, Twitter, Link as LinkIcon, Check, Download } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 
+const SHARE_CARD_WIDTH = 360;
+const SHARE_CARD_HEIGHT = 640;
+const SHARE_CARD_SCALE = 3;
+
 export function PaymentResult() {
   const location = useLocation();
   const isSuccess = location.pathname.includes('basarili');
@@ -27,6 +31,7 @@ export function PaymentResult() {
   });
 
   const [base64Logo, setBase64Logo] = useState<string | null>(null);
+  const [logoLoading, setLogoLoading] = useState(false);
 
   useEffect(() => {
     // If inside iframe, break out
@@ -83,6 +88,7 @@ export function PaymentResult() {
 
   useEffect(() => {
     if (userLogo) {
+      setLogoLoading(true);
       // Tüm absolute URL'leri proxy'den geçir (lokal ortamda CORS hatası almamak için)
       const isAbsolute = userLogo.startsWith('http');
       const fetchUrl = isAbsolute
@@ -101,7 +107,13 @@ export function PaymentResult() {
           };
           reader.readAsDataURL(blob);
         })
-        .catch(console.error);
+        .catch((error) => {
+          console.error(error);
+          setBase64Logo(null);
+        })
+        .finally(() => setLogoLoading(false));
+    } else {
+      setLogoLoading(false);
     }
   }, [userLogo]);
 
@@ -129,11 +141,17 @@ export function PaymentResult() {
 
   const downloadCard = async () => {
     if (!cardRef.current) return;
+    if (userLogo && logoLoading) {
+      alert('Logo hazırlanıyor. Lütfen birkaç saniye sonra tekrar deneyin.');
+      return;
+    }
     
     try {
       const dataUrl = await htmlToImage.toPng(cardRef.current, {
         quality: 1,
-        pixelRatio: 2,
+        width: SHARE_CARD_WIDTH,
+        height: SHARE_CARD_HEIGHT,
+        pixelRatio: SHARE_CARD_SCALE,
         backgroundColor: '#ffffff', // Arka planı zorunlu beyaz yapıyoruz (saydamlığı önlemek için)
         filter: (node) => {
           if (node instanceof HTMLElement && node.dataset.html2canvasIgnore === 'true') {
@@ -144,7 +162,7 @@ export function PaymentResult() {
       });
       
       const link = document.createElement('a');
-      link.download = `milyonluk-piksel.png`; // ID kısmı kaldırıldı
+      link.download = `milyonluk-piksel-1080x1920.png`;
       link.href = dataUrl;
       link.click();
     } catch (error) {
@@ -175,12 +193,17 @@ export function PaymentResult() {
   return (
     <div className="min-h-screen bg-[#f4f4f0] flex flex-col items-center justify-center p-4 selection:bg-red-600 selection:text-white">
       {isSuccess && paymentStatus === 'paid' ? (
-        <div className="flex flex-col items-center w-full max-w-[440px]">
+        <div className="flex flex-col items-center w-full max-w-[390px]">
           {/* Card to be downloaded */}
           <div 
             ref={cardRef}
-            className="bg-white w-full p-6 md:p-8 text-center relative overflow-hidden rounded-[32px] mb-6"
-            style={{ backgroundColor: '#ffffff' }}
+            className="bg-white p-7 text-center relative overflow-hidden rounded-[28px] mb-6 border-2 border-black flex flex-col justify-between"
+            style={{
+              backgroundColor: '#ffffff',
+              width: SHARE_CARD_WIDTH,
+              height: SHARE_CARD_HEIGHT,
+              maxWidth: 'calc(100vw - 32px)',
+            }}
           >
             {/* Confetti Effects (CSS only) */}
             <div className="absolute top-6 left-10 w-3 h-3 bg-red-500 rotate-45"></div>
@@ -193,13 +216,14 @@ export function PaymentResult() {
               <Check className="h-8 w-8 text-white" strokeWidth={3} />
             </div>
             
-            <h1 className="font-display font-black text-2xl md:text-3xl mb-2 text-gray-900">Tebrikler!</h1>
-            <p className="font-mono text-sm text-gray-600 mb-6 leading-relaxed">
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-red-600 mb-2">Milyonluk Piksel</p>
+            <h1 className="font-display font-black text-[34px] leading-none mb-3 text-gray-900">Yerimi Aldım!</h1>
+            <p className="font-mono text-[13px] text-gray-600 mb-7 leading-relaxed">
               Piksel alanını başarıyla satın aldın.<br/>Şimdi paylaş, daha fazla kişi görsün!
             </p>
 
             {/* Graphic Area */}
-            <div className="w-full bg-white border border-gray-100 rounded-2xl h-44 mb-6 relative overflow-hidden flex items-center justify-center shadow-[inset_0_0_20px_rgba(0,0,0,0.02)]">
+            <div className="w-full bg-white border-4 border-black rounded-[24px] h-[300px] mb-7 relative overflow-hidden flex items-center justify-center brutal-shadow-sm">
               {/* Grid pattern */}
               <div className="absolute inset-0 opacity-[0.15]" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '15px 15px' }}></div>
               
@@ -213,11 +237,15 @@ export function PaymentResult() {
               <div className="absolute top-1/3 left-6 w-2 h-2 bg-gray-400"></div>
               
               {/* Dynamic Logo or Placeholder */}
-              <div className="relative z-10 flex items-center justify-center p-2 bg-white/50 backdrop-blur-sm rounded-lg">
-                {(base64Logo || userLogo) ? (
-                  <img src={base64Logo || userLogo || undefined} alt="Logo" className="max-w-[120px] max-h-[80px] object-contain border-2 border-black brutal-shadow-sm rotate-[-2deg] bg-white" crossOrigin="anonymous" />
+              <div className="relative z-10 flex items-center justify-center w-[210px] h-[145px] p-4 bg-white border-4 border-black brutal-shadow-sm rotate-[-2deg]">
+                {logoLoading ? (
+                  <div className="font-mono text-xs font-bold text-gray-500">Logo hazırlanıyor</div>
+                ) : base64Logo ? (
+                  <img src={base64Logo} alt="Logo" className="max-w-full max-h-full object-contain" />
+                ) : userLogo ? (
+                  <div className="font-mono text-xs font-bold text-gray-500">Logo yüklenemedi</div>
                 ) : (
-                  <div className="bg-red-600 text-white font-display font-black text-xl md:text-2xl px-4 py-2 rotate-[-5deg] border-2 border-black brutal-shadow-sm leading-none flex flex-col items-center justify-center">
+                  <div className="bg-red-600 text-white font-display font-black text-2xl px-4 py-3 rotate-[-3deg] border-2 border-black leading-none flex flex-col items-center justify-center">
                     <span>MİLYONLUK</span>
                     <span>PİKSEL</span>
                   </div>
@@ -225,9 +253,10 @@ export function PaymentResult() {
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-2">
-              <span className="font-mono text-[15px] font-bold text-gray-800 tracking-wider">milyonlukpiksel.com</span>
+            <div className="border-2 border-black bg-[#ffd700] px-4 py-3 mb-3">
+              <span className="font-display font-black text-xl leading-none">milyonlukpiksel.com</span>
             </div>
+            <p className="font-mono text-[11px] text-gray-500 leading-snug">1080x1920 sosyal medya paylaşım kartı</p>
           </div>
 
           {/* Action Buttons (Outside the card, so they don't get snapshotted) */}

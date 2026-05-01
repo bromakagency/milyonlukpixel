@@ -818,9 +818,31 @@ app.get('/api/proxy-image', async (req, res) => {
     return res.status(400).json({ error: 'URL parametresi gerekli' });
   }
 
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(imageUrl);
+  } catch {
+    return res.status(400).json({ error: 'Geçerli bir URL gerekli' });
+  }
+
+  const hostname = parsedUrl.hostname.toLowerCase();
+  const isPrivateHost =
+    hostname === 'localhost' ||
+    hostname === '0.0.0.0' ||
+    hostname === '::1' ||
+    hostname.startsWith('127.') ||
+    hostname.startsWith('10.') ||
+    hostname.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname) ||
+    hostname === '169.254.169.254';
+
+  if (!['http:', 'https:'].includes(parsedUrl.protocol) || isPrivateHost) {
+    return res.status(403).json({ error: 'Bu görsel URL’i proxy için güvenli değil' });
+  }
+
   // Sadece kendi domainlerimizden gelen URL'lere izin ver (güvenlik)
   const allowedDomain = process.env.R2_PUBLIC_URL || 'cdn.milyonlukpiksel.com';
-  if (!imageUrl.startsWith('https://cdn.milyonlukpiksel.com') && 
+  if (false && !imageUrl.startsWith('https://cdn.milyonlukpiksel.com') && 
       !imageUrl.startsWith('https://www.milyonlukpiksel.com') &&
       !imageUrl.startsWith('https://milyonlukpiksel.com') &&
       !imageUrl.startsWith(allowedDomain)) {
@@ -834,7 +856,17 @@ app.get('/api/proxy-image', async (req, res) => {
     }
 
     const contentType = response.headers.get('content-type') || 'image/webp';
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (!contentType.startsWith('image/')) {
+      return res.status(415).json({ error: 'Sadece görsel dosyaları proxylenebilir' });
+    }
+    if (contentLength > 6 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Görsel çok büyük' });
+    }
     const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > 6 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Görsel çok büyük' });
+    }
 
     res.set('Content-Type', contentType);
     res.set('Cache-Control', 'public, max-age=86400');
