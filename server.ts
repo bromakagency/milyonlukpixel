@@ -395,15 +395,6 @@ app.post('/api/pixels', async (req, res) => {
       throw insertError || new Error('Pixel oluşturulamadı');
     }
 
-    // Activity log (best effort)
-    try {
-      const logService = getSupabaseServiceClient();
-      await logService?.from('activity_logs').insert({
-        action: 'PIXEL_CREATE',
-        description: `Pixel eklendi: ${validation.data.title}`,
-      });
-    } catch (_) {}
-    
     // Send email notification to admin
     emailService.sendNewPixelNotification({
       title: validation.data.title,
@@ -474,14 +465,6 @@ app.delete('/api/pixels/:id', async (req, res) => {
       res.status(404).json({ error: 'Pixel bulunamadı (Zaten silinmiş olabilir)' });
       return;
     }
-    
-    // Activity log (best effort)
-    try {
-      await service.from('activity_logs').insert({
-        action: 'PIXEL_DELETE',
-        description: `Pixel silindi: ${id}`,
-      });
-    } catch (_) {}
     
     res.status(204).send();
   } catch (error) {
@@ -742,12 +725,6 @@ app.post('/api/payment/paytr-callback', async (req, res) => {
           amount: pixel.price || order.amount
         });
         
-        try {
-          await supabase.from('activity_logs').insert({
-            action: 'PIXEL_CREATE',
-            description: `Yeni Pixel Satın Alındı: ${pixel.title}`,
-          });
-        } catch (_) {}
       }
 
       console.log('Payment Approved:', merchant_oid);

@@ -44,18 +44,9 @@ export const adminService = {
   },
 
   async logActivity(action: string, description: string, adminId: string | null, adminUsername: string | null): Promise<void> {
-    try {
-      await supabase
-        .from('activity_logs')
-        .insert([{
-          action,
-          description,
-          admin_id: adminId,
-          admin_username: adminUsername,
-          target_type: 'admin'
-        }]);
-    } catch (e) {
-      console.error('Log activity failed:', e);
-    }
+    void action;
+    void description;
+    void adminId;
+    void adminUsername;
   }
 };

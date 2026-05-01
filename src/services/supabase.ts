@@ -162,18 +162,9 @@ export const db = {
         adminUsername?: string | null;
       } = {}
     ): Promise<void> {
-      const { error } = await supabase
-        .from('activity_logs')
-        .insert([{
-          action,
-          description,
-          target_type: options.targetType || 'system',
-          target_id: options.targetId || null,
-          admin_id: options.adminId || null,
-          admin_username: options.adminUsername || null,
-        }]);
-      
-      if (error) console.error('Activity log error:', error);
+      void action;
+      void description;
+      void options;
     },
 
     async getAll(filter: {
