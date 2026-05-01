@@ -133,6 +133,15 @@ export function Footer() {
               </span>
             ))}
           </div>
+          
+          {/* PayTR Logo */}
+          <div className="flex justify-center pt-2">
+            <img 
+              src="/images/PayTR_logo.svg" 
+              alt="PayTR Güvenli Ödeme" 
+              className="h-5 opacity-40 hover:opacity-100 transition-opacity grayscale hover:grayscale-0"
+            />
+          </div>
 
         </div>
       </footer>
@@ -149,8 +158,8 @@ export function Footer() {
           <div className="border-l-4 border-[#ffd700] pl-4 bg-[#fffdf0] py-3 pr-3">
             <p className="text-gray-700">
               Platform üzerinde satın alınan alanlar; görsel, bağlantı ve açıklama metni ile
-              birlikte yayınlanır. Tüm içerikler yayınlanmadan önce incelenir ve platform
-              kurallarına aykırı içerikler yayınlanmaz.
+              birlikte ödeme sonrası anında yayınlanır. Platform kurallarına aykırı olduğu sonradan
+              tespit edilen içerikler yayından kaldırılabilir.
             </p>
           </div>
           <button onClick={() => setActiveModal('iletisim')} className="mt-4 font-mono text-xs font-bold underline hover:text-red-600 transition-colors block">
@@ -171,7 +180,6 @@ export function Footer() {
               <div className="font-mono text-sm space-y-1">
                 <p><span className="text-gray-500">Firma:</span> <b>Bromak Agency</b></p>
                 <p><span className="text-gray-500">Yetkili:</span> Enes Umut Parlak</p>
-                <p><span className="text-gray-500">Vergi Dairesi:</span> Meram — <span className="text-gray-500">No:</span> 7220881193</p>
               </div>
             </div>
             <div className="border-2 border-black p-4">
@@ -210,29 +218,29 @@ export function Footer() {
 İşbu Ön Bilgilendirme Formu, milyonlukpiksel.com üzerinden sunulan dijital reklam alanı hizmetine ilişkin olarak, alıcıya mesafeli sözleşme kurulmadan önce bilgi verilmesi amacıyla hazırlanmıştır.
 
 1. Satıcı / Sağlayıcı Bilgileri
-Ticari Unvan: Bromak Agency — İşleten: Enes Umut Parlak — Vergi No: 7220881193
+Ticari Unvan: Bromak Agency — İşleten: Enes Umut Parlak
 Adres: Esenler Mah. Horasan Sk. No:4/4 Selçuklu/Konya Türkiye
 E-posta: bromakagency@gmail.com — Tel: 0541 366 04 96 / 0505 063 85 43
 
-2. Hizmetin Konusu
+3. Hizmetin Konusu
 milyonlukpiksel.com üzerinden kullanıcıların seçtiği piksel alanlarının, kullanıcı tarafından sağlanan görsel, bağlantı adresi ve kısa açıklama metni ile birlikte dijital reklam alanı olarak yayınlanması hizmetidir.
 
-3. Hizmetin Temel Nitelikleri
-Satış, toplam 1.000.000 piksellik alan içinde 10x10 bloklar halinde yapılır. Her blok 10x10 piksel boyutundadır. Yayınlama işlemi otomatik değil, yönetici onayı sonrasında gerçekleştirilir. Hukuka aykırı içerikler yayınlanmaz.
+4. Hizmetin Temel Nitelikleri
+Satış, toplam 1.000.000 piksellik alan içinde 10x10 bloklar halinde yapılır. Her blok 10x10 piksel boyutundadır. Yayınlama işlemi ödeme sonrası otomatik olarak anında gerçekleştirilir.
 
-4. Fiyatlandırma
+5. Fiyatlandırma
 Blok başlangıç fiyatı 100 TL + KDV'dir. Toplam ücret seçilen blok sayısına göre ödeme öncesinde sistem üzerinde gösterilir.
 
-5. İfa / Yayın Süreci
-Ödeme tamamlandıktan sonra içerik yönetici incelemesine alınır. İçerik uygun bulunursa yayınlanır. Yayınlanan alan, milyonlukpiksel.com yayında kaldığı sürece sitede gösterilir.
+6. İfa / Yayın Süreci
+Ödeme tamamlandıktan sonra içerik anında yayına alınır. Yayınlanan alan, milyonlukpiksel.com yayında kaldığı sürece sitede gösterilir. Platformun amacı bu alanları kalıcı olarak sunmaktır.
 
-6. Cayma Hakkı
-Cayma hakkı ve istisnalarına ilişkin değerlendirme yürürlükteki tüketici mevzuatına göre yapılır. Detaylar İptal/İade Politikası ve Mesafeli Satış Sözleşmesi'nde düzenlenmiştir.
+7. Cayma Hakkı
+Dijital ortamda anında ifa edilen hizmetlerde, hizmetin ifasına başlanmış olması nedeniyle cayma hakkı kısıtlıdır. Detaylar İptal/İade Politikası'nda yer almaktadır.
 
-7. Şikâyet ve İletişim
+8. Şikâyet ve İletişim
 Alıcı taleplerini bromakagency@gmail.com adresine iletebilir.
 
-8. Onay
+9. Onay
 Alıcı, ödeme öncesinde bu formu okuyup anladığını ve elektronik ortamda onayladığını kabul eder.`} />
         </LegalModal>
       )}
@@ -249,7 +257,7 @@ Alıcı, ödeme öncesinde bu formu okuyup anladığını ve elektronik ortamda 
 Alıcının seçtiği piksel reklam alanının, alıcının sağladığı içerik doğrultusunda dijital ortamda yayınlanması hizmetinin şart ve koşullarının belirlenmesidir.
 
 3. Hizmetin Kapsamı
-Hizmet, 10x10 bloklar halinde piksel alanı tahsisini kapsar. İçerik, ödeme sonrası otomatik yayınlanmaz; satıcı tarafından incelenerek uygun bulunması halinde yayınlanır.
+Hizmet, 10x10 bloklar halinde piksel alanı tahsisini kapsar. İçerik, ödeme sonrası otomatik olarak anında yayınlanır.
 
 4. Ücret ve Ödeme
 Hizmet bedeli seçilen blok sayısına göre sistem üzerinde gösterilir. Net fiyatlara KDV eklenir ve toplam tahsilat tutarı ödeme öncesinde kullanıcıya bildirilir.
@@ -258,7 +266,7 @@ Hizmet bedeli seçilen blok sayısına göre sistem üzerinde gösterilir. Net f
 Satıcı; hukuka aykırı, yanıltıcı, müstehcen, +18, nefret söylemi, yasa dışı bahis/kumar, fikri mülkiyet ihlali içeren içerikleri reddetme hakkına sahiptir. İçeriğe ilişkin tüm hukuki sorumluluk alıcıya aittir.
 
 6. Yayın Süresi
-Satın alınan piksel alanı, milyonlukpiksel.com aktif kaldığı sürece yayında tutulur. Bu ifade belirli bir yıl veya ömür boyu garanti anlamına gelmez.
+Satın alınan piksel alanı, milyonlukpiksel.com aktif kaldığı sürece yayında tutulur. Platformun amacı bu alanları kalıcı olarak sunmaktır; ancak bu ifade hukuki bir ömür boyu garanti veya belirli bir yıl taahhüdü anlamına gelmez.
 
 7. Alıcının Sorumlulukları
 Alıcı, sağladığı görsel, metin ve bağlantının kullanım hakkına sahip olduğunu kabul eder. Üçüncü kişilere ait içerikleri izinsiz kullanmayacağını kabul eder.
@@ -287,7 +295,7 @@ milyonlukpiksel.com üzerinden sunulan hizmet; dijital reklam alanı tahsisi ve 
 Mesafeli sözleşmelerde tüketiciye genel olarak 14 gün cayma hakkı tanınır. Bununla birlikte bazı hizmetler ve elektronik ortamda ifa edilen dijital teslimlerde istisnalar bulunur.
 
 Bu kapsamda:
-Ödeme yapılmış olsa bile içerik henüz incelenmemiş ve yayın süreci başlamamışsa talep somut duruma göre değerlendirilebilir. İçerik onaylanıp yayınlandığında hizmet ifasına başlanmış olur. Kişiselleştirilmiş içeriklerde ifaya başlanması sonrasında iade talebi kabul edilmeyebilir. Hukuka aykırı içeriklerin reddedilmesi halinde ödeme iptali/iadesi satıcı inisiyatifiyle gerçekleştirilebilir.
+İçerik ödeme sonrası anında yayınlandığı ve dijital hizmet ifasına başlanmış olduğu için iade yapılmamaktadır. Ancak platform kurallarına (yasa dışı içerik, +18 vb.) aykırı içeriklerin tespiti halinde içerik yayından kaldırılır ve bu durumlarda iade hakkı saklı tutulur veya satıcı inisiyatifindedir.
 
 Yasak İçerikler
 Yasa dışı içerikler, +18 içerikler, üçüncü kişi haklarını ihlal eden içerikler, yanıltıcı bağlantılar, zararlı yazılım veya dolandırıcılık amaçlı yönlendirmeler kabul edilmez.
@@ -346,7 +354,10 @@ Kullanıcı bilgileri; ödeme sağlayıcıları ve teknik altyapı hizmetleri d�
 Site, kullanıcı verilerini korumak için gerekli teknik önlemleri almaktadır. Ancak internet ortamında %100 güvenlik garanti edilemez.
 
 5. Harici Bağlantılar
-Site üzerinden yönlendirilen bağlantıların içeriklerinden site sorumlu değildir.`} />
+Site üzerinden yönlendirilen bağlantıların içeriklerinden site sorumlu değildir.
+
+6. Analitik ve Takip
+Sitemiz, ziyaretçi deneyimini iyileştirmek ve performans ölçümü yapmak amacıyla Google Search Console ve Google Analytics araçlarını kullanmaktadır.`} />
         </LegalModal>
       )}
 

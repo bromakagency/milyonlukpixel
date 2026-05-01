@@ -48,7 +48,7 @@ export const api = {
   },
 
   async initPayment(data: PixelFormData & { email?: string }): Promise<any> {
-    const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+    const API_URL = import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:3001') : '';
     const res = await fetch(`${API_URL}/api/payment/paytr-token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

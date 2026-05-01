@@ -13,9 +13,14 @@ interface ModalProps {
   selectedCoords: { x: number; y: number } | null;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+const API_URL = import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:3001') : '';
 
 type ImageTab = 'url' | 'upload';
+
+const MAX_UPLOAD_BYTES = 3.5 * 1024 * 1024;
+
+const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob | null> =>
+  new Promise((resolve) => canvas.toBlob(resolve, type, quality));
 
 const compressImageToWebP = (file: File): Promise<File> => {
   return new Promise((resolve) => {
@@ -29,13 +34,13 @@ const compressImageToWebP = (file: File): Promise<File> => {
     reader.onload = (event) => {
       const img = new window.Image();
       img.src = event.target?.result as string;
-      img.onload = () => {
+      img.onload = async () => {
         const canvas = document.createElement('canvas');
         
         // Maksimum boyutları sınırla (1000x1000) - piksel art için çok bile
         let width = img.width;
         let height = img.height;
-        const maxSize = 1000;
+        const maxSize = 900;
         
         if (width > height && width > maxSize) {
           height *= maxSize / width;
@@ -53,16 +58,19 @@ const compressImageToWebP = (file: File): Promise<File> => {
         
         ctx.drawImage(img, 0, 0, width, height);
         
-        canvas.toBlob((blob) => {
-          if (!blob) return resolve(file);
-          
-          const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
-          const newFile = new File([blob], newFileName, {
-            type: 'image/webp',
-            lastModified: Date.now(),
-          });
-          resolve(newFile);
-        }, 'image/webp', 0.85); // %85 kalite
+        const webpBlob = await canvasToBlob(canvas, 'image/webp', 0.75);
+        const jpegBlob = await canvasToBlob(canvas, 'image/jpeg', 0.78);
+        const candidates = [webpBlob, jpegBlob].filter(Boolean) as Blob[];
+        const bestBlob = candidates.sort((a, b) => a.size - b.size)[0];
+
+        if (!bestBlob) return resolve(file);
+
+        const extension = bestBlob.type === 'image/webp' ? 'webp' : 'jpg';
+        const newFileName = file.name.replace(/\.[^/.]+$/, "") + `.${extension}`;
+        resolve(new File([bestBlob], newFileName, {
+          type: bestBlob.type,
+          lastModified: Date.now(),
+        }));
       };
       img.onerror = () => resolve(file);
     };
@@ -185,6 +193,9 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
     try {
       // Resmi tarayıcıda WebP formatına sıkıştır ve boyutlandır
       const processedFile = await compressImageToWebP(file);
+      if (processedFile.size > MAX_UPLOAD_BYTES) {
+        throw new Error('Görsel mobil yükleme için hâlâ büyük. Lütfen daha küçük bir görsel deneyin.');
+      }
 
       // Lokal preview (sıkıştırılmış haliyle)
       const reader = new FileReader();
@@ -205,7 +216,12 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
     const fd = new FormData();
     fd.append('file', file);
 
-    const res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: fd });
+    let res: Response;
+    try {
+      res = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: fd });
+    } catch {
+      throw new Error('Görsel yükleme sunucusuna ulaşılamadı. Sayfayı yenileyip tekrar deneyin.');
+    }
     let json: any;
     const contentType = res.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
