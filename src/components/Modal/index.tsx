@@ -91,7 +91,6 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   const [uploadedPreview, setUploadedPreview] = useState<string>('');
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState('');
-  const [clampWarning, setClampWarning] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentToken, setPaymentToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -246,7 +245,6 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    setClampWarning('');
 
     const x = selectedCoords.x;
     const y = selectedCoords.y;
@@ -312,7 +310,6 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
       setPendingUploadFile(null);
       setPaymentToken(null);
       setError('');
-      setClampWarning('');
     }, 200);
   };
 

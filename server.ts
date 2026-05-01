@@ -71,6 +71,15 @@ const imageProxyRateLimiter = rateLimit({
   message: { error: 'Çok fazla görsel proxy isteği. Lütfen biraz bekleyin.' },
 });
 
+const paytrCallbackRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: 'Too many callback attempts',
+});
+
 function getBearerToken(req: express.Request): string | null {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
@@ -732,7 +741,7 @@ app.post('/api/payment/paytr-token', async (req, res) => {
 });
 
 // PayTR Callback (Webhook)
-app.post('/api/payment/paytr-callback', async (req, res) => {
+app.post('/api/payment/paytr-callback', paytrCallbackRateLimiter, async (req, res) => {
   try {
     const {
       merchant_oid, status, total_amount, hash,
@@ -853,6 +862,15 @@ app.post('/api/payment/paytr-callback', async (req, res) => {
           imageUrl: pixel.image_url, linkUrl: pixel.link_url,
           amount: pixel.price || order.amount
         });
+
+        if (order.email) {
+          emailService.sendPixelApprovedNotification({
+            title: pixel.title,
+            x: pixel.x, y: pixel.y, w: pixel.w, h: pixel.h,
+            imageUrl: pixel.image_url, linkUrl: pixel.link_url,
+            amount: pixel.price || order.amount
+          }, order.email);
+        }
         
       }
 
