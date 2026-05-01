@@ -529,7 +529,7 @@ app.post('/api/payment/paytr-token', async (req, res) => {
     const timeout_limit = '30';
     const debug_on = process.env.PAYTR_DEBUG_ON || (process.env.NODE_ENV === 'production' ? '0' : '1');
     const test_mode = process.env.PAYTR_TEST_MODE || (process.env.NODE_ENV === 'production' ? '0' : '1');
-    const no_installment = '0';
+    const no_installment = '1';
     const max_installment = '0';
     const currency = 'TL';
 
