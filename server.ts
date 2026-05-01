@@ -90,7 +90,7 @@ type PixelArea = { id?: string; x: number; y: number; w: number; h: number };
 
 const GRID_BLOCKS_X = 125;
 const GRID_BLOCKS_Y = 80;
-const PENDING_ORDER_TTL_MINUTES = 35;
+const PENDING_ORDER_TTL_MINUTES = 15;
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
