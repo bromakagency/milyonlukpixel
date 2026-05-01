@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usePixels } from '../../hooks/usePixels';
 import { formatNumber } from '../../utils/helpers';
+import { PIXEL_BLOCK_NET_PRICE_TRY, getGrossPriceFromBlocks } from '../../utils/pricing';
 import { ArrowRight, Eye, ChevronRight, Globe } from 'lucide-react';
 
 interface HeaderProps {
@@ -14,6 +15,7 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
   const recentBlocksSold24h = stats.recentBlocksSold24h ?? 0;
   const soldPixelsFormatted = formatNumber(stats.soldPixels);
   const availablePixelsFormatted = formatNumber(stats.availablePixels);
+  const blockGrossPrice = getGrossPriceFromBlocks(1, 1);
 
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
@@ -142,7 +144,10 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
                 <br />
                 10x10 bloklar halinde satılıyor.
                 <br />
-                Tanesi sadece 1 TL.
+                Blok fiyatı {PIXEL_BLOCK_NET_PRICE_TRY} TL + KDV.
+              </p>
+              <p className="mx-auto mt-3 max-w-sm text-[13px] leading-6 text-gray-500">
+                1 blok (10x10 px) net {PIXEL_BLOCK_NET_PRICE_TRY} TL, KDV dahil {blockGrossPrice.toLocaleString('tr-TR')} TL'dir.
               </p>
 
               <div className="mt-7 grid gap-3 sm:grid-cols-2">

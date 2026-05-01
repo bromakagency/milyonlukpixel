@@ -7,6 +7,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { createClient } from '@supabase/supabase-js';
 import { db } from './src/services/supabase.js';
 import { emailService } from './server/services/emailService.js';
+import { getGrossPriceFromBlocks } from './src/utils/pricing.js';
 import crypto from 'crypto';
 
 const app = express();
@@ -388,7 +389,7 @@ app.post('/api/pixels', async (req, res) => {
       title: validation.data.title,
       status: 'approved',
       user_email: userData.user.email,
-      price: validation.data.w * validation.data.h * 100,
+      price: getGrossPriceFromBlocks(validation.data.w, validation.data.h),
     }).select().single();
 
     if (insertError || !pixel) {
@@ -404,7 +405,7 @@ app.post('/api/pixels', async (req, res) => {
       h: validation.data.h,
       imageUrl: validation.data.imageUrl,
       linkUrl: validation.data.linkUrl,
-      amount: validation.data.w * validation.data.h * 100,
+      amount: getGrossPriceFromBlocks(validation.data.w, validation.data.h),
     });
     
     res.status(201).json({
@@ -511,7 +512,7 @@ app.post('/api/payment/paytr-token', async (req, res) => {
       return res.status(500).json({ error: 'PayTR bilgileri eksik' });
     }
 
-    const price = w * h * 100;
+    const price = getGrossPriceFromBlocks(w, h);
     const payment_amount = price * 100; // 1 blok = 100TL = 10000 kuruş
     const merchant_oid = 'MP' + Date.now() + crypto.randomBytes(4).toString('hex').toUpperCase();
     const user_ip = normalizeUserIp(req);
@@ -523,7 +524,7 @@ app.post('/api/payment/paytr-token', async (req, res) => {
     const merchant_ok_url = process.env.PAYTR_MERCHANT_OK_URL || 'http://localhost:5173/basarili';
     const merchant_fail_url = process.env.PAYTR_MERCHANT_FAIL_URL || 'http://localhost:5173/hata';
     const user_basket = Buffer.from(JSON.stringify([
-      [`Milyonluk Piksel Alanı (${w*10}x${h*10})`, (w*h*100).toString(), 1]
+      [`Milyonluk Piksel Alanı (${w*10}x${h*10})`, price.toString(), 1]
     ])).toString('base64');
     
     const timeout_limit = '30';

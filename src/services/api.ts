@@ -1,6 +1,7 @@
 import { db } from './supabase';
 import type { Pixel, Stats, ActivityLog } from './supabase';
 import { adminApi } from './adminApi';
+import { getGrossPriceFromBlocks } from '../utils/pricing';
 
 export interface PixelFormData {
   x: number;
@@ -82,7 +83,7 @@ export const api = {
         h: data.h,
         imageUrl: data.imageUrl,
         linkUrl: data.linkUrl,
-        amount: data.w * data.h * 100,
+        amount: getGrossPriceFromBlocks(data.w, data.h),
       }),
     }).catch(() => undefined);
 

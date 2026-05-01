@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
+import { getGrossPriceFromBlocks } from '../utils/pricing';
 
 // Vite üretim modunda dinamik erişime (import.meta.env[key]) izin vermez.
 // Bu yüzden değişkenleri açıkça yazmalıyız.
@@ -216,7 +217,7 @@ export const db = {
       const totalPixels = 1000000;
       const soldPixels = pixels.reduce((acc, p) => acc + (p.w * 10 * p.h * 10), 0);
       const availablePixels = totalPixels - soldPixels;
-      const totalRevenue = pixels.reduce((acc, p) => acc + (p.w * p.h * 100), 0);
+      const totalRevenue = pixels.reduce((acc, p) => acc + getGrossPriceFromBlocks(p.w, p.h), 0);
       
       return {
         totalPixels,

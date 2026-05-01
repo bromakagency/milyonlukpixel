@@ -47,6 +47,28 @@ CREATE TRIGGER pixels_overlap_trigger
   BEFORE INSERT OR UPDATE ON pixels
   FOR EACH ROW EXECUTE FUNCTION check_pixel_overlap();
 
+-- Sipariş çakışma kontrolü (Race condition önleyici)
+CREATE OR REPLACE FUNCTION check_order_overlap()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'pending' THEN
+    IF EXISTS (
+      SELECT 1 FROM orders o
+      WHERE o.id != NEW.id
+        AND o.status = 'pending'
+        AND o.created_at >= NOW() - INTERVAL '15 minutes'
+        AND NEW.x < o.x + o.w
+        AND NEW.x + NEW.w > o.x
+        AND NEW.y < o.y + o.h
+        AND NEW.y + NEW.h > o.y
+    ) THEN
+      RAISE EXCEPTION 'Bu alan için başka bir ödeme işlemi devam ediyor';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Admins Tablosu - Admin hesapları
 CREATE TABLE admins (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -91,6 +113,11 @@ CREATE TABLE orders (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Sipariş kilit mekanizması (Race condition koruması)
+CREATE TRIGGER orders_overlap_trigger
+  BEFORE INSERT OR UPDATE ON orders
+  FOR EACH ROW EXECUTE FUNCTION check_order_overlap();
 
 -- İndeksler
 CREATE INDEX idx_pixels_created_at ON pixels(created_at DESC);

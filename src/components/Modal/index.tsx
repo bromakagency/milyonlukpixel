@@ -4,6 +4,7 @@ import { validatePixelForm } from '../../utils/validation';
 import { Upload, Link, X, Image, Loader2, ArrowLeft } from 'lucide-react';
 import { api } from '../../services/api';
 import { usePixelContext } from '../../context/PixelContext';
+import { KDV_RATE, getGrossPriceFromBlocks, getKdvAmountFromNet, getNetPriceFromBlocks } from '../../utils/pricing';
 
 interface ModalProps {
   isOpen: boolean;
@@ -159,6 +160,9 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
   const isClamped  = effectiveW !== formData.w || effectiveH !== formData.h;
   const isPixelCollision = hitPixelW || hitPixelH;
+  const netAmount = getNetPriceFromBlocks(effectiveW, effectiveH);
+  const kdvAmount = getKdvAmountFromNet(netAmount);
+  const grossAmount = getGrossPriceFromBlocks(effectiveW, effectiveH);
 
   // ── Dosya Yükleme ────────────────────────────────────────────────────────
   const handleFile = async (file: File) => {
@@ -575,13 +579,29 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
             </div>
           )}
 
+          <div className="border-2 border-black bg-white p-3 md:p-4 brutal-shadow-sm">
+            <div className="flex items-center justify-between font-mono text-xs md:text-sm">
+              <span>Net tutar</span>
+              <strong>{netAmount.toLocaleString('tr-TR')} TL</strong>
+            </div>
+            <div className="mt-2 flex items-center justify-between font-mono text-xs md:text-sm text-gray-600">
+              <span>KDV (%{Math.round(KDV_RATE * 100)})</span>
+              <strong>{kdvAmount.toLocaleString('tr-TR')} TL</strong>
+            </div>
+            <div className="mt-3 border-t-2 border-black pt-3 flex items-center justify-between font-mono text-sm md:text-base font-bold">
+              <span>Toplam</span>
+              <span>{grossAmount.toLocaleString('tr-TR')} TL</span>
+            </div>
+            <p className="mt-2 font-mono text-[11px] text-gray-500">Net fiyatlara KDV eklenir. Tahsil edilecek toplam tutar yukarıda gösterilir.</p>
+          </div>
+
           <div className="pt-2 md:pt-4">
             <button
               type="submit"
               disabled={loading || uploading}
               className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-display font-bold text-xl py-4 border-2 border-black brutal-shadow transition-transform active:translate-y-1 active:translate-x-1 active:shadow-none uppercase"
             >
-              {loading ? 'İşleniyor...' : `Güvenli Ödeme Adımına Geç (${(effectiveW * effectiveH * 100).toLocaleString()} TL)`}
+              {loading ? 'İşleniyor...' : `Güvenli Ödeme Adımına Geç (${grossAmount.toLocaleString('tr-TR')} TL)`}
             </button>
           </div>
         </form>

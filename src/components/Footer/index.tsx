@@ -221,7 +221,7 @@ milyonlukpiksel.com üzerinden kullanıcıların seçtiği piksel alanlarının,
 Satış, toplam 1.000.000 piksellik alan içinde 10x10 bloklar halinde yapılır. Her blok 10x10 piksel boyutundadır. Yayınlama işlemi otomatik değil, yönetici onayı sonrasında gerçekleştirilir. Hukuka aykırı içerikler yayınlanmaz.
 
 4. Fiyatlandırma
-Blok başlangıç fiyatı 1 TL'dir. Sitede gösterilen fiyatlar KDV dahildir. Toplam ücret seçilen blok sayısına göre gösterilir.
+Blok başlangıç fiyatı 100 TL + KDV'dir. Toplam ücret seçilen blok sayısına göre ödeme öncesinde sistem üzerinde gösterilir.
 
 5. İfa / Yayın Süreci
 Ödeme tamamlandıktan sonra içerik yönetici incelemesine alınır. İçerik uygun bulunursa yayınlanır. Yayınlanan alan, milyonlukpiksel.com yayında kaldığı sürece sitede gösterilir.
@@ -252,7 +252,7 @@ Alıcının seçtiği piksel reklam alanının, alıcının sağladığı içeri
 Hizmet, 10x10 bloklar halinde piksel alanı tahsisini kapsar. İçerik, ödeme sonrası otomatik yayınlanmaz; satıcı tarafından incelenerek uygun bulunması halinde yayınlanır.
 
 4. Ücret ve Ödeme
-Hizmet bedeli seçilen blok sayısına göre sistem üzerinde gösterilir. Fiyatlara KDV dahildir.
+Hizmet bedeli seçilen blok sayısına göre sistem üzerinde gösterilir. Net fiyatlara KDV eklenir ve toplam tahsilat tutarı ödeme öncesinde kullanıcıya bildirilir.
 
 5. Yayın Onayı ve İçerik Politikası
 Satıcı; hukuka aykırı, yanıltıcı, müstehcen, +18, nefret söylemi, yasa dışı bahis/kumar, fikri mülkiyet ihlali içeren içerikleri reddetme hakkına sahiptir. İçeriğe ilişkin tüm hukuki sorumluluk alıcıya aittir.

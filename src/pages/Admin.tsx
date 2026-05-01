@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { adminApi, AdminOrder } from '../services/adminApi';
 import { api } from '../services/api';
 import { Stats, AdminInfo } from '../types';
+import { PIXEL_BLOCK_NET_PRICE_TRY, getGrossPriceFromBlocks } from '../utils/pricing';
 import {
   LayoutDashboard,
   Image,
@@ -168,7 +169,7 @@ navigate('/ers-admin/login');
     return now - date <= 30 * 24 * 60 * 60 * 1000;
   };
 
-  const getPixelPrice = (pixel: any) => pixel.w * pixel.h * 100;
+  const getPixelPrice = (pixel: any) => getGrossPriceFromBlocks(pixel.w, pixel.h);
 
   const filteredPixels = useMemo(() => {
     const query = pixelSearch.trim().toLowerCase();
@@ -247,7 +248,7 @@ navigate('/ers-admin/login');
   const PixelPreviewModal = () => {
     if (!previewPixel) return null;
     const px = previewPixel;
-    const price = (px.w * px.h * 100).toLocaleString();
+    const price = getGrossPriceFromBlocks(px.w, px.h).toLocaleString('tr-TR');
     const coordX = px.x * 10;
     const coordY = px.y * 10;
     const sizeW = px.w * 10;
@@ -547,9 +548,9 @@ navigate('/ers-admin/login');
                   <span className="font-mono text-xs text-black uppercase">Blok Fiyatı</span>
                 </div>
                 <p className="font-display text-2xl md:text-3xl font-black">
-                  ₺100
+                  ₺{getGrossPriceFromBlocks(1, 1).toLocaleString('tr-TR')}
                 </p>
-                <p className="font-mono text-xs text-black/60 mt-1">10x10 px</p>
+                <p className="font-mono text-xs text-black/60 mt-1">10x10 px • {PIXEL_BLOCK_NET_PRICE_TRY} TL + KDV</p>
               </div>
             </div>
 
@@ -612,7 +613,7 @@ navigate('/ers-admin/login');
                           {pixel.title}
                         </td>
                         <td className="font-mono text-sm p-2 font-bold">
-                          ₺{(pixel.w * pixel.h * 100).toLocaleString()}
+                          ₺{getGrossPriceFromBlocks(pixel.w, pixel.h).toLocaleString('tr-TR')}
                         </td>
                         <td className="font-mono text-sm text-gray-500 p-2">
                           {pixel.createdAt ? new Date(pixel.createdAt).toLocaleDateString('tr-TR') : '-'}
@@ -748,7 +749,7 @@ navigate('/ers-admin/login');
                         {pixel.title}
                       </td>
                       <td className="font-mono text-sm p-2 font-bold">
-                        ₺{(pixel.w * pixel.h * 100).toLocaleString()}
+                        ₺{getGrossPriceFromBlocks(pixel.w, pixel.h).toLocaleString('tr-TR')}
                       </td>
                       <td className="font-mono text-sm text-gray-500 p-2">
                         {pixel.createdAt ? new Date(pixel.createdAt).toLocaleDateString('tr-TR') : '-'}
