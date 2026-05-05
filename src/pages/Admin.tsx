@@ -678,6 +678,8 @@ navigate('/ers-admin/login');
               <div className="md:col-span-2 flex items-center gap-2 border-2 border-black bg-white px-3 py-2">
                 <Search className="w-4 h-4 text-gray-500" />
                 <input
+                  id="admin-pixel-search"
+                  name="pixelSearch"
                   value={pixelSearch}
                   onChange={(e) => setPixelSearch(e.target.value)}
                   placeholder="Marka, link, koordinat ara"
@@ -685,6 +687,8 @@ navigate('/ers-admin/login');
                 />
               </div>
               <select
+                id="admin-pixel-date-filter"
+                name="pixelDateFilter"
                 value={pixelDateFilter}
                 onChange={(e) => setPixelDateFilter(e.target.value as DateFilter)}
                 className="border-2 border-black bg-white px-3 py-2 outline-none"
@@ -695,6 +699,8 @@ navigate('/ers-admin/login');
                 <option value="30d">Son 30 gün</option>
               </select>
               <input
+                id="admin-min-price"
+                name="minPrice"
                 value={minPrice}
                 onChange={(e) => setMinPrice(e.target.value)}
                 type="number"
@@ -703,6 +709,8 @@ navigate('/ers-admin/login');
                 className="border-2 border-black bg-white px-3 py-2 outline-none"
               />
               <input
+                id="admin-max-price"
+                name="maxPrice"
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(e.target.value)}
                 type="number"
@@ -842,6 +850,8 @@ navigate('/ers-admin/login');
             <div className="flex items-center gap-2 border-2 border-black bg-white px-3 py-2 mb-4 font-mono text-xs">
               <Search className="w-4 h-4 text-gray-500" />
               <input
+                id="admin-order-search"
+                name="orderSearch"
                 value={orderSearch}
                 onChange={(e) => setOrderSearch(e.target.value)}
                 placeholder="Marka, link, e-posta, sipariş no, koordinat ara"

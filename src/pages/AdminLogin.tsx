@@ -47,13 +47,16 @@ export function AdminLogin() {
             )}
 
             <div>
-              <label className="block font-mono text-xs font-bold uppercase mb-2">
+              <label htmlFor="admin-email" className="block font-mono text-xs font-bold uppercase mb-2">
                 E-Posta
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  id="admin-email"
+                  name="email"
                   type="email"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -64,13 +67,16 @@ export function AdminLogin() {
             </div>
 
             <div>
-              <label className="block font-mono text-xs font-bold uppercase mb-2">
+              <label htmlFor="admin-password" className="block font-mono text-xs font-bold uppercase mb-2">
                 Şifre
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
+                  id="admin-password"
+                  name="password"
                   type="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required

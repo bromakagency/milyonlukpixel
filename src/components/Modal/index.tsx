@@ -360,7 +360,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
           {/* Boyutlar */}
           <div className="grid grid-cols-2 gap-3 md:gap-4">
             <div>
-              <label className="block font-mono text-xs font-bold uppercase mb-2 text-center">Genişlik (Blok)</label>
+              <label htmlFor="pixel-width" className="block font-mono text-xs font-bold uppercase mb-2 text-center">Genişlik (Blok)</label>
               <div className="flex border-2 border-black brutal-shadow-sm focus-within:bg-[#ffd700]/20 transition-colors bg-white">
                 <button 
                   type="button" 
@@ -368,6 +368,8 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
                   onClick={() => setFormData(prev => ({ ...prev, w: Math.max(1, (prev.w || 1) - 1) }))}
                 >−</button>
                 <input
+                  id="pixel-width"
+                  name="width"
                   type="number" min="1" max="125" required
                   className="w-full p-2 md:p-3 font-mono text-center text-base md:text-lg focus:outline-none bg-transparent appearance-none"
                   value={formData.w || ''}
@@ -386,7 +388,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
               </p>
             </div>
             <div>
-              <label className="block font-mono text-xs font-bold uppercase mb-2 text-center">Yükseklik (Blok)</label>
+              <label htmlFor="pixel-height" className="block font-mono text-xs font-bold uppercase mb-2 text-center">Yükseklik (Blok)</label>
               <div className="flex border-2 border-black brutal-shadow-sm focus-within:bg-[#ffd700]/20 transition-colors bg-white">
                 <button 
                   type="button" 
@@ -394,6 +396,8 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
                   onClick={() => setFormData(prev => ({ ...prev, h: Math.max(1, (prev.h || 1) - 1) }))}
                 >−</button>
                 <input
+                  id="pixel-height"
+                  name="height"
                   type="number" min="1" max="80" required
                   className="w-full p-2 md:p-3 font-mono text-center text-base md:text-lg focus:outline-none bg-transparent appearance-none"
                   value={formData.h || ''}
@@ -445,7 +449,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
           {/* Logo Yükleme: Sekmeler */}
           <div>
-            <label className="block font-mono text-xs font-bold uppercase mb-2">Logo / Görsel</label>
+            <label htmlFor={imageTab === 'upload' ? 'pixel-image-file' : 'pixel-image-url'} className="block font-mono text-xs font-bold uppercase mb-2">Logo / Görsel</label>
 
             {/* Tab Bar */}
             <div className="flex border-2 border-black mb-3">
@@ -471,6 +475,8 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
             {imageTab === 'upload' && (
               <div>
                 <input
+                  id="pixel-image-file"
+                  name="imageFile"
                   ref={fileInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/gif,image/webp"
@@ -524,6 +530,8 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
             {/* URL Tab */}
             {imageTab === 'url' && (
               <input
+                id="pixel-image-url"
+                name="imageUrl"
                 type="url"
                 placeholder="https://ornek.com/logo.png"
                 className="w-full border-2 border-black p-2 md:p-3 font-mono text-sm focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm transition-colors"
@@ -535,8 +543,10 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
           {/* Hedef Link */}
           <div>
-            <label className="block font-mono text-xs font-bold uppercase mb-2">Hedef Link</label>
+            <label htmlFor="pixel-link-url" className="block font-mono text-xs font-bold uppercase mb-2">Hedef Link</label>
             <input
+              id="pixel-link-url"
+              name="linkUrl"
               type="text" inputMode="url" required
               placeholder="siteniz.com"
               className="w-full border-2 border-black p-2 md:p-3 font-mono text-sm md:text-base focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm transition-colors"
@@ -554,9 +564,12 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
           {/* Email */}
           <div>
-            <label className="block font-mono text-xs font-bold uppercase mb-2">E-posta Adresi</label>
+            <label htmlFor="pixel-email" className="block font-mono text-xs font-bold uppercase mb-2">E-posta Adresi</label>
             <input
+              id="pixel-email"
+              name="email"
               type="email" required
+              autoComplete="email"
               placeholder="Fatura ve onay için gerekli"
               className="w-full border-2 border-black p-2 md:p-3 font-mono text-sm md:text-base focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm transition-colors"
               value={formData.email}
@@ -566,8 +579,10 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
           {/* Slogan */}
           <div>
-            <label className="block font-mono text-xs font-bold uppercase mb-2">Slogan / Marka Adı</label>
+            <label htmlFor="pixel-title" className="block font-mono text-xs font-bold uppercase mb-2">Slogan / Marka Adı</label>
             <input
+              id="pixel-title"
+              name="title"
               type="text" required maxLength={100}
               placeholder="Üzerine gelince çıkacak yazı"
               className="w-full border-2 border-black p-2 md:p-3 font-mono text-sm md:text-base focus:outline-none focus:bg-[#ffd700]/20 brutal-shadow-sm transition-colors"
