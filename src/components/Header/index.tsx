@@ -198,19 +198,25 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
                       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
                       .slice(0, 3)
                       .map((pixel) => (
-                        <div key={pixel.id} className="flex items-center gap-2.5 p-2 hover:bg-white rounded-[14px] transition-colors min-w-0">
-                          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm p-0.5">
+                        <a 
+                          key={pixel.id} 
+                          href={pixel.linkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          className="flex items-center gap-2.5 p-2 hover:bg-white hover:shadow-md rounded-[14px] transition-all min-w-0 cursor-pointer group"
+                        >
+                          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm p-0.5 group-hover:border-red-200 transition-colors">
                             <img
                               src={pixel.imageUrl}
                               alt={pixel.title}
                               className="h-full w-full object-contain"
                             />
                           </div>
-                          <p className="text-[11px] font-semibold text-gray-700 leading-tight">
+                          <p className="text-[11px] font-semibold text-gray-700 leading-tight group-hover:text-red-600 transition-colors">
                             {pixel.w * 10}×{pixel.h * 10}<br />
                             <span className="font-normal text-gray-500">piksel aldı</span>
                           </p>
-                        </div>
+                        </a>
                       ))}
                   </div>
                 </div>
