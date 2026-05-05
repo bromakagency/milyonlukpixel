@@ -50,7 +50,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 4 * 1024 * 1024 }, // Vercel 4.5MB limiti nedeniyle 4MB'a düşürdük
   fileFilter: (_req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     cb(null, allowed.includes(file.mimetype));
   },
 });
@@ -78,6 +78,14 @@ const paytrCallbackRateLimiter = rateLimit({
   legacyHeaders: false,
   skipSuccessfulRequests: true,
   message: 'Too many callback attempts',
+});
+
+const paytrTokenRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Cok fazla odeme baslatma denemesi. Lutfen biraz bekleyin.' },
 });
 
 function getBearerToken(req: express.Request): string | null {
@@ -125,6 +133,8 @@ type PixelArea = { id?: string; x: number; y: number; w: number; h: number };
 const GRID_BLOCKS_X = 125;
 const GRID_BLOCKS_Y = 80;
 const PENDING_ORDER_TTL_MINUTES = 15;
+const PENDING_UPLOAD_IMAGE_URL = 'https://milyonlukpiksel.com/pending-upload.webp';
+const MERCHANT_OID_PATTERN = /^MP\d{10,16}[A-F0-9]{8}$/;
 
 function normalizeString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -138,6 +148,10 @@ function normalizeUserIp(req: express.Request): string {
   const forwarded = req.headers['x-forwarded-for'];
   const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
   return (raw?.split(',')[0]?.trim() || req.socket.remoteAddress || '1.1.1.1').replace('::ffff:', '');
+}
+
+function isPendingUploadImageUrl(value: unknown): boolean {
+  return normalizeString(value) === PENDING_UPLOAD_IMAGE_URL;
 }
 
 function areasOverlap(a: PixelArea, b: PixelArea): boolean {
@@ -271,8 +285,39 @@ app.post('/api/upload', uploadRateLimiter, upload.single('file'), async (req, re
       return;
     }
 
+    const merchantOid = normalizeString(req.body?.merchantOid || req.body?.merchant_oid);
+    if (!MERCHANT_OID_PATTERN.test(merchantOid)) {
+      res.status(400).json({ error: 'Gecersiz siparis numarasi' });
+      return;
+    }
+
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) {
+      res.status(500).json({ error: 'Supabase servisi yok' });
+      return;
+    }
+
+    const reservationCutoff = new Date(Date.now() - PENDING_ORDER_TTL_MINUTES * 60 * 1000).toISOString();
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id, image_url, status, created_at')
+      .eq('merchant_oid', merchantOid)
+      .eq('status', 'pending')
+      .gte('created_at', reservationCutoff)
+      .single();
+
+    if (orderError || !order) {
+      res.status(403).json({ error: 'Gecerli bir bekleyen odeme kaydi gerekli' });
+      return;
+    }
+
+    if (!isPendingUploadImageUrl(order.image_url)) {
+      res.status(409).json({ error: 'Bu siparis icin gorsel zaten belirlenmis' });
+      return;
+    }
+
     const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'png';
-    const key = `pixels/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const key = `pixels/${merchantOid}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
 
     const bucketName = process.env.R2_BUCKET_NAME;
     const publicBase = process.env.R2_PUBLIC_URL?.replace(/\/$/, '');
@@ -298,6 +343,21 @@ app.post('/api/upload', uploadRateLimiter, upload.single('file'), async (req, re
     }));
 
     const url = `${publicBase}/${key}`;
+
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        image_url: url,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', order.id)
+      .eq('status', 'pending');
+
+    if (updateError) {
+      console.error('Order image update error:', updateError);
+      res.status(500).json({ error: 'Gorsel siparise baglanamadi' });
+      return;
+    }
 
     res.json({ url });
   } catch (err) {
@@ -662,7 +722,7 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // ── PayTR Ödeme Entegrasyonu ──────────────────────────────────────────────────
-app.post('/api/payment/paytr-token', async (req, res) => {
+app.post('/api/payment/paytr-token', paytrTokenRateLimiter, async (req, res) => {
   try {
     const validation = validatePurchasePayload(req.body);
     if (validation.ok === false) {
@@ -829,6 +889,22 @@ app.post('/api/payment/paytr-callback', paytrCallbackRateLimiter, async (req, re
     if (status === 'success') {
       // Payment Successful
       if (order.status === 'paid') {
+        return res.status(200).send('OK');
+      }
+
+      if (isPendingUploadImageUrl(order.image_url)) {
+        console.error('PAYTR PAID BUT IMAGE UPLOAD MISSING:', merchant_oid);
+        await supabase.from('orders').update({
+          status: 'rejected',
+          details: {
+            ...(order.details || {}),
+            rejected_reason: 'missing_image_upload',
+            paytr_status: status,
+            total_amount,
+            test_mode,
+          },
+          updated_at: new Date().toISOString(),
+        }).eq('id', order.id);
         return res.status(200).send('OK');
       }
 

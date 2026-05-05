@@ -24,11 +24,6 @@ const canvasToBlob = (canvas: HTMLCanvasElement, type: string, quality: number):
 
 const compressImageToWebP = (file: File): Promise<File> => {
   return new Promise((resolve) => {
-    // SVG dosyalarını dönüştürme (bozulur)
-    if (file.type === 'image/svg+xml') {
-      return resolve(file);
-    }
-    
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
@@ -176,8 +171,8 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   const handleFile = async (file: File) => {
     if (!file) return;
 
-    if (!file.type.match(/^image\/(jpeg|png|gif|webp|svg\+xml)$/)) {
-      setError('Desteklenen formatlar: JPG, PNG, GIF, WebP, SVG');
+    if (!file.type.match(/^image\/(jpeg|png|gif|webp)$/)) {
+      setError('Desteklenen formatlar: JPG, PNG, GIF, WebP');
       return;
     }
     // Limit 50MB (tarayıcı çökmesin diye) - Gerçek yükleme 100KB'a düşecek
@@ -211,9 +206,10 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
     }
   };
 
-  const uploadPendingFile = async (file: File) => {
+  const uploadPendingFile = async (file: File, merchantOid: string) => {
     const fd = new FormData();
     fd.append('file', file);
+    fd.append('merchantOid', merchantOid);
 
     let res: Response;
     try {
@@ -272,16 +268,8 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
     setLoading(true);
     try {
-      if (hasPendingUpload && pendingUploadFile) {
-        const imageUrl = await uploadPendingFile(pendingUploadFile);
-        data.imageUrl = imageUrl;
-        setFormData(prev => ({ ...prev, imageUrl }));
-        setPendingUploadFile(null);
-      }
-
       // Save logo and temporary ID to show on the success screen
       const tempId = 'PXL-' + Math.random().toString(16).substring(2, 6).toUpperCase() + '-' + Math.random().toString(16).substring(2, 6).toUpperCase();
-      localStorage.setItem('lastPurchasedLogo', data.imageUrl);
       localStorage.setItem('lastPurchasedId', tempId);
 
       // Start payment process and get PayTR token
@@ -291,6 +279,14 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
         if (res.oid) {
           localStorage.setItem('lastMerchantOid', res.oid);
         }
+        if (hasPendingUpload && pendingUploadFile) {
+          if (!res.oid) throw new Error('Siparis numarasi alinamadi.');
+          const imageUrl = await uploadPendingFile(pendingUploadFile, res.oid);
+          data.imageUrl = imageUrl;
+          setFormData(prev => ({ ...prev, imageUrl }));
+          setPendingUploadFile(null);
+        }
+        localStorage.setItem('lastPurchasedLogo', data.imageUrl);
         setPaymentToken(res.token);
       } else {
         setError('Ödeme tokenı alınamadı.');
@@ -477,7 +473,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
                   className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
                 />
@@ -519,7 +515,7 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
                     <p className="font-mono text-xs text-gray-600">
                       Dosyayı buraya sürükle veya <span className="font-bold underline">tıkla</span>
                     </p>
-                    <p className="font-mono text-[10px] text-gray-400 mt-1">JPG, PNG, GIF, WebP, SVG — max 50 MB</p>
+                    <p className="font-mono text-[10px] text-gray-400 mt-1">JPG, PNG, GIF, WebP — max 50 MB</p>
                   </div>
                 )}
               </div>
