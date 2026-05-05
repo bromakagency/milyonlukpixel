@@ -103,6 +103,23 @@ function getSupabaseServiceClient() {
   });
 }
 
+function getAdminEmailAllowlist(): Set<string> {
+  const raw = [
+    process.env.ADMIN_EMAIL,
+    process.env.ADMIN_EMAILS,
+    process.env.ADMIN_ALLOWED_EMAILS,
+  ]
+    .filter(Boolean)
+    .join(',');
+
+  return new Set(
+    raw
+      .split(',')
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
 type PixelArea = { id?: string; x: number; y: number; w: number; h: number };
 
 const GRID_BLOCKS_X = 125;
@@ -379,6 +396,11 @@ app.get('/api/admin/orders', async (req, res) => {
       return;
     }
 
+    if (!getAdminEmailAllowlist().has(String(userData.user.email || '').trim().toLowerCase())) {
+      res.status(403).json({ error: 'Bu islem icin admin yetkisi gerekli' });
+      return;
+    }
+
     const { data, error } = await service
       .from('orders')
       .select('id, merchant_oid, x, y, w, h, image_url, link_url, title, email, amount, status, created_at, updated_at')
@@ -435,6 +457,11 @@ app.delete('/api/admin/orders/:id', async (req, res) => {
       return;
     }
 
+    if (!getAdminEmailAllowlist().has(String(userData.user.email || '').trim().toLowerCase())) {
+      res.status(403).json({ error: 'Bu islem icin admin yetkisi gerekli' });
+      return;
+    }
+
     const { data: deletedRows, error: deleteError } = await service
       .from('orders')
       .delete()
@@ -477,6 +504,11 @@ app.post('/api/pixels', async (req, res) => {
     const { data: userData, error: userError } = await service.auth.getUser(token);
     if (userError || !userData?.user) {
       res.status(401).json({ error: 'Geçersiz oturum', details: userError?.message });
+      return;
+    }
+
+    if (!getAdminEmailAllowlist().has(String(userData.user.email || '').trim().toLowerCase())) {
+      res.status(403).json({ error: 'Bu islem icin admin yetkisi gerekli' });
       return;
     }
 
@@ -564,6 +596,11 @@ app.delete('/api/pixels/:id', async (req, res) => {
     }
 
     // Silme işlemini service_role client'ı ile yap
+    if (!getAdminEmailAllowlist().has(String(userData.user.email || '').trim().toLowerCase())) {
+      res.status(403).json({ error: 'Bu islem icin admin yetkisi gerekli' });
+      return;
+    }
+
     const { data: deletedRows, error: deleteError } = await service
       .from('pixels')
       .delete()

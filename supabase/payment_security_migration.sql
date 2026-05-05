@@ -68,11 +68,12 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Orders are viewable by authenticated users" ON orders;
 DROP POLICY IF EXISTS "Orders can be modified by admin" ON orders;
+DROP POLICY IF EXISTS "Pixels can be modified by authenticated users" ON pixels;
 
-CREATE POLICY "Orders are viewable by authenticated users" ON orders
-  FOR SELECT USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Orders can be modified by admin" ON orders
-  FOR ALL USING (auth.role() = 'authenticated');
+-- Browser clients must not read/write orders directly. The backend service role
+-- handles order creation, PayTR callbacks, and admin order management.
+--
+-- Browser clients must also not write pixels directly. Approved pixels should
+-- only be created after a verified payment callback or by a backend-verified admin.
 
 NOTIFY pgrst, 'reload schema';

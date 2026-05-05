@@ -136,10 +136,9 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
 -- Pixel okuma herkese açık, yazma sadece authenticated
 CREATE POLICY "Pixels are viewable by everyone" ON pixels
-  FOR SELECT USING (true);
+  FOR SELECT USING (status = 'approved');
 
-CREATE POLICY "Pixels can be modified by authenticated users" ON pixels
-  FOR ALL USING (auth.role() = 'authenticated');
+-- Pixel writes must go through backend service-role flows only.
 
 -- Admin sadece kendini görebilir
 CREATE POLICY "Admins are viewable by authenticated users" ON admins
@@ -158,11 +157,7 @@ CREATE POLICY "Activity logs are viewable by everyone" ON activity_logs
   FOR SELECT USING (true);
 
 -- Orders sadece authenticated görebilir
-CREATE POLICY "Orders are viewable by authenticated users" ON orders
-  FOR SELECT USING (auth.role() = 'authenticated');
-
-CREATE POLICY "Orders can be modified by admin" ON orders
-  FOR ALL USING (auth.role() = 'authenticated');
+-- Order reads and writes must go through backend service-role flows only.
 
 -- =============================================
 -- İLK ADMIN OLUŞTURMA (Manuel çalıştır)
