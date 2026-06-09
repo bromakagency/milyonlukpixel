@@ -10,10 +10,10 @@ import { PixelFormData } from '../types';
 export function Home() {
   const { createPixel } = usePixels();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCoords, setSelectedCoords] = useState<{ x: number; y: number } | null>(null);
+  const [selectedCoords, setSelectedCoords] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
-  const handlePixelSelect = (x: number, y: number) => {
-    setSelectedCoords({ x, y });
+  const handlePixelSelect = (x: number, y: number, w: number, h: number) => {
+    setSelectedCoords({ x, y, w, h });
     setIsModalOpen(true);
   };
 

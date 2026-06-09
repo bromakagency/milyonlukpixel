@@ -1,7 +1,7 @@
 import { useState, useRef, FormEvent, DragEvent, useEffect } from 'react';
 import { PixelFormData } from '../../types';
 import { validatePixelForm } from '../../utils/validation';
-import { Upload, Link, X, Image, Loader2, ArrowLeft } from 'lucide-react';
+import { Upload, Link, X, Image, Loader2, ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
 import { api } from '../../services/api';
 import { usePixelContext } from '../../context/PixelContext';
 import { KDV_RATE, getGrossPriceFromBlocks, getKdvAmountFromNet, getNetPriceFromBlocks } from '../../utils/pricing';
@@ -10,7 +10,7 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: PixelFormData) => Promise<void>;
-  selectedCoords: { x: number; y: number } | null;
+  selectedCoords: { x: number; y: number; w?: number; h?: number } | null;
 }
 
 const API_URL = import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:3001') : '';
@@ -118,12 +118,25 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
     setTimeout(init, 200);
   }, [paymentToken]);
 
+  useEffect(() => {
+    if (!isOpen || !selectedCoords) return;
+    setFormData(prev => ({
+      ...prev,
+      x: selectedCoords.x,
+      y: selectedCoords.y,
+      w: selectedCoords.w || 1,
+      h: selectedCoords.h || 1,
+    }));
+  }, [isOpen, selectedCoords?.x, selectedCoords?.y, selectedCoords?.w, selectedCoords?.h]);
+
 
   if (!isOpen || !selectedCoords) return null;
 
   // ── Anlık clamp hesabı (reaktif, submit beklemez) ──────────────────────
-  const maxW = 125 - selectedCoords.x;
-  const maxH = 80  - selectedCoords.y;
+  const areaX = formData.x;
+  const areaY = formData.y;
+  const maxW = 125 - areaX;
+  const maxH = 80 - areaY;
   let effectiveW = Math.min(Math.max(formData.w || 1, 1), maxW);
   let effectiveH = Math.min(Math.max(formData.h || 1, 1), maxH);
 
@@ -135,9 +148,9 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   let maxWForH = maxW;
   for (const p of approvedPixels) {
     // Eğer y ekseninde kesişiyorsak ve bu pixel sağımızdaysa
-    if (selectedCoords.y < p.y + effectiveH && selectedCoords.y + effectiveH > p.y) {
-      if (p.x > selectedCoords.x) {
-        maxWForH = Math.min(maxWForH, p.x - selectedCoords.x);
+    if (areaY < p.y + effectiveH && areaY + effectiveH > p.y) {
+      if (p.x > areaX) {
+        maxWForH = Math.min(maxWForH, p.x - areaX);
       }
     }
   }
@@ -150,9 +163,9 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   let maxHForW = maxH;
   for (const p of approvedPixels) {
     // Eğer x ekseninde kesişiyorsak ve bu pixel aşağımızdaysa
-    if (selectedCoords.x < p.x + p.w && selectedCoords.x + effectiveW > p.x) {
-      if (p.y > selectedCoords.y) {
-        maxHForW = Math.min(maxHForW, p.y - selectedCoords.y);
+    if (areaX < p.x + p.w && areaX + effectiveW > p.x) {
+      if (p.y > areaY) {
+        maxHForW = Math.min(maxHForW, p.y - areaY);
       }
     }
   }
@@ -242,8 +255,8 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
     e.preventDefault();
     setError('');
 
-    const x = selectedCoords.x;
-    const y = selectedCoords.y;
+    const x = areaX;
+    const y = areaY;
     // effectiveW ve effectiveH render sırasında en güncel limitlere (grid sonu + diğer pikseller) göre hesaplandı.
     // formData.w veya formData.h farklıysa arka planda güncelleyelim ama asıl submit edilecek data "effective" olanlar.
     if (isClamped) {
@@ -349,11 +362,11 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
           <div className="flex gap-3 md:gap-4">
             <div className="flex-1 bg-white p-2 md:p-3 border-2 border-black brutal-shadow-sm">
               <label className="block font-mono text-xs font-bold text-gray-500 uppercase mb-1">X Koordinatı</label>
-              <div className="text-lg md:text-xl font-mono font-bold">{selectedCoords.x * 10}</div>
+              <div className="text-lg md:text-xl font-mono font-bold">{areaX * 10}</div>
             </div>
             <div className="flex-1 bg-white p-2 md:p-3 border-2 border-black brutal-shadow-sm">
               <label className="block font-mono text-xs font-bold text-gray-500 uppercase mb-1">Y Koordinatı</label>
-              <div className="text-lg md:text-xl font-mono font-bold">{selectedCoords.y * 10}</div>
+              <div className="text-lg md:text-xl font-mono font-bold">{areaY * 10}</div>
             </div>
           </div>
 
@@ -596,21 +609,71 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
             <div>
               <label className="block font-mono text-xs font-bold uppercase mb-2">Canlı Önizleme (Gerçek Boyut)</label>
               <div className="w-full border-2 border-black bg-white p-4 md:p-6 flex flex-col items-center justify-center brutal-shadow-sm">
-                <div 
-                  className="bg-white border border-gray-300 shadow-inner relative overflow-hidden transition-all duration-200"
-                  style={{ 
-                    width: effectiveW * 10, 
-                    height: effectiveH * 10,
-                    backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h5v5H0zM5 5h5v5H5z\' fill=\'%23f3f4f6\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
-                    backgroundRepeat: 'repeat'
-                  }}
-                  title={formData.title || "Önizleme"}
-                >
-                  <img 
-                    src={uploadedPreview || formData.imageUrl} 
-                    alt="Canlı Önizleme" 
-                    className="w-full h-full object-contain object-center" 
-                  />
+                <div className="flex items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={() => undefined}
+                    disabled
+                    className="hidden"
+                    title="Yukarı 1 blok ekle"
+                  >
+                    <ArrowUp className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => undefined}
+                    disabled
+                    className="hidden"
+                    title="Sola 1 blok ekle"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex items-center justify-center">
+                    <div 
+                      className="bg-white border border-gray-300 shadow-inner relative overflow-hidden transition-all duration-200"
+                      style={{ 
+                        width: effectiveW * 10, 
+                        height: effectiveH * 10,
+                        backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'10\' height=\'10\' viewBox=\'0 0 10 10\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h5v5H0zM5 5h5v5H5z\' fill=\'%23f3f4f6\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
+                        backgroundRepeat: 'repeat'
+                      }}
+                      title={formData.title || "Önizleme"}
+                    >
+                      <img 
+                        src={uploadedPreview || formData.imageUrl} 
+                        alt="Canlı Önizleme" 
+                        className="w-full h-full object-contain object-center" 
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => undefined}
+                    disabled
+                    className="hidden"
+                    title="Sağa 1 blok ekle"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => undefined}
+                    disabled
+                    className="hidden"
+                    title="Aşağı 1 blok ekle"
+                  >
+                    <ArrowDown className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="hidden">
+                  <span className="border border-gray-200 bg-white px-2 py-1 text-center">X: {areaX * 10}</span>
+                  <span className="border border-gray-200 bg-white px-2 py-1 text-center">Y: {areaY * 10}</span>
+                  <span className="border border-gray-200 bg-white px-2 py-1 text-center">{effectiveW}x{effectiveH} blok</span>
                 </div>
                 <p className="font-mono text-[11px] mt-4 text-center max-w-xs leading-relaxed">
                   {isClamped

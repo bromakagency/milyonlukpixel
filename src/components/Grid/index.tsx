@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, MouseEvent, useEffect } from 'react';
-import { Plus, Minus, Maximize2, X } from 'lucide-react';
+import { useState, useCallback, MouseEvent, useEffect } from 'react';
+import { Plus, Minus, Maximize2, X, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Check, Undo } from 'lucide-react';
 import { usePixelContext } from '../../context/PixelContext';
 
 // ── Grid Sabitleri ──────────────────────────────────────────────────────────
@@ -10,20 +10,28 @@ const GRID_WIDTH_PX  = BLOCKS_X * BLOCK_PX;  // 1250px
 const GRID_HEIGHT_PX = BLOCKS_Y * BLOCK_PX;  // 800px
 
 interface GridProps {
-  onPixelSelect: (x: number, y: number) => void;
+  onPixelSelect: (x: number, y: number, w: number, h: number) => void;
 }
+
+type SelectionArea = { x: number; y: number; w: number; h: number };
 
 // ── Paylaşılan Piksel Katmanı (hem normal hem tam ekran için) ───────────────
 function PixelCanvas({
   pixels,
   zoom,
-  onPixelSelect,
+  selection,
+  onSelectionChange,
+  onConfirmSelection,
 }: {
   pixels: ReturnType<typeof usePixelContext>['pixels'];
   zoom: number;
-  onPixelSelect: (x: number, y: number) => void;
+  selection: SelectionArea | null;
+  onSelectionChange: (selection: SelectionArea | null) => void;
+  onConfirmSelection: (selection: SelectionArea) => void;
 }) {
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+  const [selectionHistory, setSelectionHistory] = useState<SelectionArea[]>([]);
+  const approvedPixels = pixels.filter((p) => !p.status || p.status === 'approved');
 
   const getCoordsFromRect = (clientX: number, clientY: number, rect: DOMRect) => ({
     x: Math.floor(((clientX - rect.left) / rect.width)  * BLOCKS_X),
@@ -43,12 +51,82 @@ function PixelCanvas({
     const rect = e.currentTarget.getBoundingClientRect();
     const { x, y } = getCoordsFromRect(e.clientX, e.clientY, rect);
     if (!isInBounds(x, y)) return;
-    const isOccupied = pixels
-      .filter((p) => !p.status || p.status === 'approved')
-      .some(
+    const isOccupied = approvedPixels.some(
       (p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h
     );
-    if (!isOccupied) onPixelSelect(x, y);
+    if (!isOccupied) {
+      setSelectionHistory([]);
+      onSelectionChange({ x, y, w: 1, h: 1 });
+    }
+  };
+
+  const isAreaAvailable = (area: SelectionArea) => {
+    if (area.x < 0 || area.y < 0 || area.x + area.w > BLOCKS_X || area.y + area.h > BLOCKS_Y) {
+      return false;
+    }
+
+    return !approvedPixels.some((p) =>
+      area.x < p.x + p.w &&
+      area.x + area.w > p.x &&
+      area.y < p.y + p.h &&
+      area.y + area.h > p.y
+    );
+  };
+
+  const growSelection = (direction: 'up' | 'down' | 'left' | 'right') => {
+    if (!selection) return;
+
+    const next = direction === 'up'
+      ? { ...selection, y: selection.y - 1, h: selection.h + 1 }
+      : direction === 'down'
+        ? { ...selection, h: selection.h + 1 }
+        : direction === 'left'
+          ? { ...selection, x: selection.x - 1, w: selection.w + 1 }
+          : { ...selection, w: selection.w + 1 };
+
+    if (isAreaAvailable(next)) {
+      setSelectionHistory(prev => [...prev, selection]);
+      onSelectionChange(next);
+    }
+  };
+
+  const handleUndo = () => {
+    if (selectionHistory.length > 0) {
+      const prev = selectionHistory[selectionHistory.length - 1];
+      setSelectionHistory(h => h.slice(0, -1));
+      onSelectionChange(prev);
+    }
+  };
+
+  const getPopupStyle = () => {
+    if (!selection) return {};
+    const POPUP_W_HALF = 100; // Genişlik yarıçapı + pay
+    const POPUP_H = 160;      // Yükseklik tahmini
+    
+    const idealLeft = (selection.x + selection.w / 2) * BLOCK_PX;
+    const clampedLeft = Math.max(POPUP_W_HALF, Math.min(idealLeft, GRID_WIDTH_PX - POPUP_W_HALF));
+    
+    let idealTop = (selection.y + selection.h) * BLOCK_PX + 8;
+    
+    if (idealTop + POPUP_H > GRID_HEIGHT_PX) {
+      idealTop = (selection.y * BLOCK_PX) - POPUP_H - 8;
+      if (idealTop < 8) {
+        idealTop = Math.max(8, GRID_HEIGHT_PX - POPUP_H - 8);
+      }
+    }
+    
+    return {
+      left: clampedLeft,
+      top: idealTop,
+      transform: 'translateX(-50%)',
+    };
+  };
+
+  const canGrow = {
+    up: selection ? isAreaAvailable({ ...selection, y: selection.y - 1, h: selection.h + 1 }) : false,
+    down: selection ? isAreaAvailable({ ...selection, h: selection.h + 1 }) : false,
+    left: selection ? isAreaAvailable({ ...selection, x: selection.x - 1, w: selection.w + 1 }) : false,
+    right: selection ? isAreaAvailable({ ...selection, w: selection.w + 1 }) : false,
   };
 
   return (
@@ -70,7 +148,7 @@ function PixelCanvas({
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setMousePos(null)}
       >
-        {pixels.filter(p => !p.status || p.status === 'approved').map((pixel) => (
+        {approvedPixels.map((pixel) => (
           <a
             key={pixel.id}
             href={pixel.linkUrl}
@@ -99,6 +177,107 @@ function PixelCanvas({
           </a>
         ))}
 
+        {selection && (
+          <>
+            <div
+              className="absolute pointer-events-none z-30 border-2 border-green-500 bg-green-400/25 ring-2 ring-green-300"
+              style={{
+                left: selection.x * BLOCK_PX,
+                top: selection.y * BLOCK_PX,
+                width: selection.w * BLOCK_PX,
+                height: selection.h * BLOCK_PX,
+              }}
+            />
+
+            <div
+              className="absolute z-40 flex flex-col items-center gap-1"
+              style={getPopupStyle()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => growSelection('up')}
+                disabled={!canGrow.up}
+                className="h-8 w-8 border-2 border-black bg-white text-black brutal-shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-100 flex items-center justify-center"
+                title="Yukarı 1 blok büyüt"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => growSelection('left')}
+                  disabled={!canGrow.left}
+                  className="h-8 w-8 border-2 border-black bg-white text-black brutal-shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-100 flex items-center justify-center"
+                  title="Sola 1 blok büyüt"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+
+                <div className="bg-black px-2 py-1 font-mono text-[10px] font-bold text-white whitespace-nowrap">
+                  {selection.w * 10}x{selection.h * 10}px
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => growSelection('right')}
+                  disabled={!canGrow.right}
+                  className="h-8 w-8 border-2 border-black bg-white text-black brutal-shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-100 flex items-center justify-center"
+                  title="Sağa 1 blok büyüt"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => growSelection('down')}
+                disabled={!canGrow.down}
+                className="h-8 w-8 border-2 border-black bg-white text-black brutal-shadow-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-100 flex items-center justify-center"
+                title="Aşağı 1 blok büyüt"
+              >
+                <ArrowDown className="h-4 w-4" />
+              </button>
+
+              <div className="mt-1 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectionHistory([]);
+                    onSelectionChange(null);
+                  }}
+                  className="h-8 w-8 border-2 border-black bg-white text-black brutal-shadow-sm hover:bg-red-50 flex items-center justify-center"
+                  title="Seçimi iptal et"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+
+                {selectionHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleUndo}
+                    className="h-8 w-8 border-2 border-black bg-red-50 text-red-600 brutal-shadow-sm hover:bg-red-100 flex items-center justify-center"
+                    title="Geri Al"
+                  >
+                    <Undo className="h-4 w-4" />
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => onConfirmSelection(selection)}
+                  className="h-8 min-w-[84px] border-2 border-black bg-green-500 px-2 font-mono text-[10px] font-bold uppercase text-black brutal-shadow-sm hover:bg-green-400 flex items-center justify-center gap-1"
+                  title="Bu alanı satın al"
+                >
+                  <Check className="h-4 w-4" />
+                  Devam
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
         {mousePos && (
           <div
             className="absolute pointer-events-none z-20 border-2 border-red-600 bg-red-600/30"
@@ -118,11 +297,15 @@ function PixelCanvas({
 // ── Tam Ekran Modal ──────────────────────────────────────────────────────────
 function FullscreenModal({
   pixels,
-  onPixelSelect,
+  selection,
+  onSelectionChange,
+  onConfirmSelection,
   onClose,
 }: {
   pixels: ReturnType<typeof usePixelContext>['pixels'];
-  onPixelSelect: (x: number, y: number) => void;
+  selection: SelectionArea | null;
+  onSelectionChange: (selection: SelectionArea | null) => void;
+  onConfirmSelection: (selection: SelectionArea) => void;
   onClose: () => void;
 }) {
   // Ekran boyutuna sığacak zoom hesapla (padding ile)
@@ -198,7 +381,13 @@ function FullscreenModal({
       <div className="flex-1 overflow-auto">
         <div className="min-h-full flex items-start justify-center p-4">
           <div className="border-4 border-white/30 bg-[#f4f4f0]">
-            <PixelCanvas pixels={pixels} zoom={zoom} onPixelSelect={onPixelSelect} />
+            <PixelCanvas
+              pixels={pixels}
+              zoom={zoom}
+              selection={selection}
+              onSelectionChange={onSelectionChange}
+              onConfirmSelection={onConfirmSelection}
+            />
           </div>
         </div>
       </div>
@@ -211,6 +400,12 @@ export function Grid({ onPixelSelect }: GridProps) {
   const { pixels } = usePixelContext();
   const [zoom, setZoom] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selection, setSelection] = useState<SelectionArea | null>(null);
+
+  const confirmSelection = (area: SelectionArea) => {
+    onPixelSelect(area.x, area.y, area.w, area.h);
+    setIsFullscreen(false);
+  };
 
   return (
     <>
@@ -265,14 +460,22 @@ export function Grid({ onPixelSelect }: GridProps) {
         className="w-full max-w-[1250px] overflow-auto border-2 md:border-4 border-black bg-[#f4f4f0] brutal-shadow-lg mx-auto"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
-        <PixelCanvas pixels={pixels} zoom={zoom} onPixelSelect={onPixelSelect} />
+        <PixelCanvas
+          pixels={pixels}
+          zoom={zoom}
+          selection={selection}
+          onSelectionChange={setSelection}
+          onConfirmSelection={confirmSelection}
+        />
       </div>
 
       {/* ── Tam Ekran Modal ──────────────────────────────────────────────── */}
       {isFullscreen && (
         <FullscreenModal
           pixels={pixels}
-          onPixelSelect={(x, y) => { onPixelSelect(x, y); setIsFullscreen(false); }}
+          selection={selection}
+          onSelectionChange={setSelection}
+          onConfirmSelection={confirmSelection}
           onClose={() => setIsFullscreen(false)}
         />
       )}

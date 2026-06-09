@@ -22,7 +22,7 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
   // Sunucu bazlı gerçek + FOMO ziyaretçi takibi (Polling)
   const [liveUsers, setLiveUsers] = useState(() => {
     const cached = localStorage.getItem('pixel_live_users');
-    return cached ? parseInt(cached, 10) : 4;
+    return cached ? parseInt(cached, 10) : 3; // İlk girişte en az 3 (kendisi + 2 taktik)
   });
 
   useEffect(() => {
@@ -48,8 +48,10 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
         if (res.ok) {
           const data = await res.json();
           if (data && typeof data.count === 'number') {
-            setLiveUsers(data.count);
-            localStorage.setItem('pixel_live_users', data.count.toString());
+            // Taktik: Gerçek kişi sayısının üzerine 2 kişi daha ekle
+            const fakeCount = data.count + 2;
+            setLiveUsers(fakeCount);
+            localStorage.setItem('pixel_live_users', fakeCount.toString());
           }
         }
       } catch (error) {
