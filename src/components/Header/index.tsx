@@ -139,16 +139,10 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
                 Türkiye Edisyonu
               </span>
 
-              <p className="mx-auto mt-3 max-w-sm text-[18px] leading-7 text-gray-800">
-                İnternet tarihinde yerinizi alın.
-                <br />
-                Toplam 1.000.000 piksel.
-                <br />
-                10x10 bloklar halinde satılıyor.
-                <br />
-                Blok fiyatı {PIXEL_BLOCK_NET_PRICE_TRY} TL + KDV.
+              <p className="mx-auto mt-3 max-w-md text-[14px] leading-relaxed text-gray-800">
+                İnternet tarihinde yerinizi alın <span className="text-gray-400 mx-1">&bull;</span> Toplam 1.000.000 piksel <span className="text-gray-400 mx-1">&bull;</span> 10x10 bloklar halinde satılıyor <span className="text-gray-400 mx-1">&bull;</span> Blok fiyatı {PIXEL_BLOCK_NET_PRICE_TRY} TL + KDV.
               </p>
-              <p className="mx-auto mt-3 max-w-sm text-[13px] leading-6 text-gray-500">
+              <p className="mx-auto mt-1 max-w-sm text-[12px] leading-5 text-gray-500">
                 1 blok (10x10 px) net {PIXEL_BLOCK_NET_PRICE_TRY} TL, KDV dahil {blockGrossPrice.toLocaleString('tr-TR')} TL'dir.
               </p>
 

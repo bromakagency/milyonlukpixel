@@ -1,12 +1,12 @@
 import { useState, useCallback, MouseEvent, useEffect } from 'react';
 import { Plus, Minus, Maximize2, X, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Check, Undo } from 'lucide-react';
 import { usePixelContext } from '../../context/PixelContext';
-
+import { getGrossPriceFromBlocks } from '../../utils/pricing';
 // ── Grid Sabitleri ──────────────────────────────────────────────────────────
 const BLOCKS_X = 125;
 const BLOCKS_Y = 80;
 const BLOCK_PX = 10;
-const GRID_WIDTH_PX  = BLOCKS_X * BLOCK_PX;  // 1250px
+const GRID_WIDTH_PX = BLOCKS_X * BLOCK_PX;  // 1250px
 const GRID_HEIGHT_PX = BLOCKS_Y * BLOCK_PX;  // 800px
 
 interface GridProps {
@@ -34,8 +34,8 @@ function PixelCanvas({
   const approvedPixels = pixels.filter((p) => !p.status || p.status === 'approved');
 
   const getCoordsFromRect = (clientX: number, clientY: number, rect: DOMRect) => ({
-    x: Math.floor(((clientX - rect.left) / rect.width)  * BLOCKS_X),
-    y: Math.floor(((clientY - rect.top)  / rect.height) * BLOCKS_Y),
+    x: Math.floor(((clientX - rect.left) / rect.width) * BLOCKS_X),
+    y: Math.floor(((clientY - rect.top) / rect.height) * BLOCKS_Y),
   });
 
   const isInBounds = (x: number, y: number) =>
@@ -102,19 +102,19 @@ function PixelCanvas({
     if (!selection) return {};
     const POPUP_W_HALF = 100; // Genişlik yarıçapı + pay
     const POPUP_H = 160;      // Yükseklik tahmini
-    
+
     const idealLeft = (selection.x + selection.w / 2) * BLOCK_PX;
     const clampedLeft = Math.max(POPUP_W_HALF, Math.min(idealLeft, GRID_WIDTH_PX - POPUP_W_HALF));
-    
+
     let idealTop = (selection.y + selection.h) * BLOCK_PX + 8;
-    
+
     if (idealTop + POPUP_H > GRID_HEIGHT_PX) {
       idealTop = (selection.y * BLOCK_PX) - POPUP_H - 8;
       if (idealTop < 8) {
         idealTop = Math.max(8, GRID_HEIGHT_PX - POPUP_H - 8);
       }
     }
-    
+
     return {
       left: clampedLeft,
       top: idealTop,
@@ -132,16 +132,16 @@ function PixelCanvas({
   return (
     <div
       style={{
-        width:    GRID_WIDTH_PX  * zoom,
-        height:   GRID_HEIGHT_PX * zoom,
+        width: GRID_WIDTH_PX * zoom,
+        height: GRID_HEIGHT_PX * zoom,
         position: 'relative',
       }}
     >
       <div
         className="relative pixel-grid cursor-crosshair origin-top-left"
         style={{
-          width:     GRID_WIDTH_PX,
-          height:    GRID_HEIGHT_PX,
+          width: GRID_WIDTH_PX,
+          height: GRID_HEIGHT_PX,
           transform: `scale(${zoom})`,
         }}
         onClick={handleClick}
@@ -157,9 +157,9 @@ function PixelCanvas({
             title={pixel.title}
             className="absolute block overflow-hidden bg-white hover:z-30 hover:ring-4 hover:ring-red-600 transition-none"
             style={{
-              left:   pixel.x * BLOCK_PX,
-              top:    pixel.y * BLOCK_PX,
-              width:  pixel.w * BLOCK_PX,
+              left: pixel.x * BLOCK_PX,
+              top: pixel.y * BLOCK_PX,
+              width: pixel.w * BLOCK_PX,
               height: pixel.h * BLOCK_PX,
             }}
           >
@@ -215,8 +215,9 @@ function PixelCanvas({
                   <ArrowLeft className="h-4 w-4" />
                 </button>
 
-                <div className="bg-black px-2 py-1 font-mono text-[10px] font-bold text-white whitespace-nowrap">
-                  {selection.w * 10}x{selection.h * 10}px
+                <div className="bg-black px-2 font-mono text-[10px] font-bold text-white whitespace-nowrap flex flex-col items-center justify-center h-8 min-w-[64px]">
+                  <span className="leading-[14px]">{selection.w * 10}x{selection.h * 10}px</span>
+                  <span className="leading-[14px] text-green-400">{getGrossPriceFromBlocks(selection.w, selection.h).toLocaleString('tr-TR')} ₺</span>
                 </div>
 
                 <button
@@ -282,9 +283,9 @@ function PixelCanvas({
           <div
             className="absolute pointer-events-none z-20 border-2 border-red-600 bg-red-600/30"
             style={{
-              left:   mousePos.x * BLOCK_PX,
-              top:    mousePos.y * BLOCK_PX,
-              width:  BLOCK_PX,
+              left: mousePos.x * BLOCK_PX,
+              top: mousePos.y * BLOCK_PX,
+              width: BLOCK_PX,
               height: BLOCK_PX,
             }}
           />
@@ -310,7 +311,7 @@ function FullscreenModal({
 }) {
   // Ekran boyutuna sığacak zoom hesapla (padding ile)
   const fitZoom = Math.min(
-    (window.innerWidth  - 32) / GRID_WIDTH_PX,
+    (window.innerWidth - 32) / GRID_WIDTH_PX,
     (window.innerHeight - 96) / GRID_HEIGHT_PX
   );
   const [zoom, setZoom] = useState(parseFloat(fitZoom.toFixed(2)));
