@@ -147,10 +147,12 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   // X yönündeki (sağa doğru) genişlemeyi y'deki kesişimlere göre sınırla
   let maxWForH = maxW;
   for (const p of approvedPixels) {
-    // Eğer y ekseninde kesişiyorsak ve bu pixel sağımızdaysa
-    if (areaY < p.y + effectiveH && areaY + effectiveH > p.y) {
-      if (p.x > areaX) {
+    // Eğer y ekseninde kesişiyorsak
+    if (areaY < p.y + p.h && areaY + effectiveH > p.y) {
+      if (p.x >= areaX) {
         maxWForH = Math.min(maxWForH, p.x - areaX);
+      } else if (p.x + p.w > areaX) {
+        maxWForH = 0;
       }
     }
   }
@@ -162,10 +164,12 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
   // Y yönündeki (aşağı doğru) genişlemeyi yeni (sınırlandırılmış) x genişliğine göre sınırla
   let maxHForW = maxH;
   for (const p of approvedPixels) {
-    // Eğer x ekseninde kesişiyorsak ve bu pixel aşağımızdaysa
+    // Eğer x ekseninde kesişiyorsak
     if (areaX < p.x + p.w && areaX + effectiveW > p.x) {
-      if (p.y > areaY) {
+      if (p.y >= areaY) {
         maxHForW = Math.min(maxHForW, p.y - areaY);
+      } else if (p.y + p.h > areaY) {
+        maxHForW = 0;
       }
     }
   }
