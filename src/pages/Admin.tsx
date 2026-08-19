@@ -571,7 +571,7 @@ navigate('/ers-admin/login');
                 <p className="font-display text-2xl md:text-3xl font-black">
                   ₺{getGrossPriceFromBlocks(1, 1).toLocaleString('tr-TR')}
                 </p>
-                <p className="font-mono text-xs text-black/60 mt-1">10x10 px • {PIXEL_BLOCK_NET_PRICE_TRY} TL + KDV</p>
+                <p className="font-mono text-xs text-black/60 mt-1">10x10 px • {PIXEL_BLOCK_NET_PRICE_TRY} TL</p>
               </div>
             </div>
 

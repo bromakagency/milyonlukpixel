@@ -140,10 +140,10 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
               </span>
 
               <p className="mx-auto mt-3 max-w-md text-[14px] leading-relaxed text-gray-800">
-                İnternet tarihinde yerinizi alın <span className="text-gray-400 mx-1">&bull;</span> Toplam 1.000.000 piksel <span className="text-gray-400 mx-1">&bull;</span> 10x10 bloklar halinde satılıyor <span className="text-gray-400 mx-1">&bull;</span> Blok fiyatı {PIXEL_BLOCK_NET_PRICE_TRY} TL + KDV.
+                İnternet tarihinde yerinizi alın <span className="text-gray-400 mx-1">&bull;</span> Toplam 1.000.000 piksel <span className="text-gray-400 mx-1">&bull;</span> 10x10 bloklar halinde satılıyor <span className="text-gray-400 mx-1">&bull;</span> Blok fiyatı {blockGrossPrice.toLocaleString('tr-TR')} TL.
               </p>
               <p className="mx-auto mt-1 max-w-sm text-[12px] leading-5 text-gray-500">
-                1 blok (10x10 px) net {PIXEL_BLOCK_NET_PRICE_TRY} TL, KDV dahil {blockGrossPrice.toLocaleString('tr-TR')} TL'dir.
+                1 blok (10x10 px) {blockGrossPrice.toLocaleString('tr-TR')} TL'dir.
               </p>
 
               <div className="mt-7 grid gap-3 sm:grid-cols-2">

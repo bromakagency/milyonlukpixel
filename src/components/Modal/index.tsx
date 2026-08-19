@@ -4,7 +4,7 @@ import { validatePixelForm } from '../../utils/validation';
 import { Upload, Link, X, Image, Loader2, ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from 'lucide-react';
 import { api } from '../../services/api';
 import { usePixelContext } from '../../context/PixelContext';
-import { KDV_RATE, getGrossPriceFromBlocks, getKdvAmountFromNet, getNetPriceFromBlocks } from '../../utils/pricing';
+import { getGrossPriceFromBlocks } from '../../utils/pricing';
 
 interface ModalProps {
   isOpen: boolean;
@@ -180,8 +180,6 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
 
   const isClamped  = effectiveW !== formData.w || effectiveH !== formData.h;
   const isPixelCollision = hitPixelW || hitPixelH;
-  const netAmount = getNetPriceFromBlocks(effectiveW, effectiveH);
-  const kdvAmount = getKdvAmountFromNet(netAmount);
   const grossAmount = getGrossPriceFromBlocks(effectiveW, effectiveH);
 
   // ── Dosya Yükleme ────────────────────────────────────────────────────────
@@ -699,19 +697,11 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
           )}
 
           <div className="border-2 border-black bg-white p-3 md:p-4 brutal-shadow-sm">
-            <div className="flex items-center justify-between font-mono text-xs md:text-sm">
-              <span>Net tutar</span>
-              <strong>{netAmount.toLocaleString('tr-TR')} TL</strong>
+            <div className="flex items-center justify-between font-mono text-sm md:text-base font-bold">
+              <span>Toplam Tutar ({formData.w * formData.h} Blok)</span>
+              <span className="text-red-600">{grossAmount.toLocaleString('tr-TR')} TL</span>
             </div>
-            <div className="mt-2 flex items-center justify-between font-mono text-xs md:text-sm text-gray-600">
-              <span>KDV (%{Math.round(KDV_RATE * 100)})</span>
-              <strong>{kdvAmount.toLocaleString('tr-TR')} TL</strong>
-            </div>
-            <div className="mt-3 border-t-2 border-black pt-3 flex items-center justify-between font-mono text-sm md:text-base font-bold">
-              <span>Toplam</span>
-              <span>{grossAmount.toLocaleString('tr-TR')} TL</span>
-            </div>
-            <p className="mt-2 font-mono text-[11px] text-gray-500">Net fiyatlara KDV eklenir. Tahsil edilecek toplam tutar yukarıda gösterilir.</p>
+            <p className="mt-2 font-mono text-[11px] text-gray-500">1 blok (10x10 px) = 100 TL</p>
           </div>
 
           <div className="pt-2 md:pt-4">
