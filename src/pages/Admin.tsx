@@ -190,7 +190,10 @@ navigate('/ers-admin/login');
     return now - date <= 30 * 24 * 60 * 60 * 1000;
   };
 
-  const getPixelPrice = (pixel: any) => getGrossPriceFromBlocks(pixel.w, pixel.h);
+  const getPixelPrice = (pixel: any) =>
+    pixel.price != null && Number(pixel.price) > 0
+      ? Number(pixel.price)
+      : getGrossPriceFromBlocks(pixel.w, pixel.h);
 
   const filteredPixels = useMemo(() => {
     const query = pixelSearch.trim().toLowerCase();
@@ -269,7 +272,7 @@ navigate('/ers-admin/login');
   const PixelPreviewModal = () => {
     if (!previewPixel) return null;
     const px = previewPixel;
-    const price = getGrossPriceFromBlocks(px.w, px.h).toLocaleString('tr-TR');
+    const price = getPixelPrice(px).toLocaleString('tr-TR');
     const coordX = px.x * 10;
     const coordY = px.y * 10;
     const sizeW = px.w * 10;
@@ -640,7 +643,7 @@ navigate('/ers-admin/login');
                           {pixel.title}
                         </td>
                         <td className="font-mono text-sm p-2 font-bold">
-                          ₺{getGrossPriceFromBlocks(pixel.w, pixel.h).toLocaleString('tr-TR')}
+                          ₺{getPixelPrice(pixel).toLocaleString('tr-TR')}
                         </td>
                         <td className="font-mono text-sm text-gray-500 p-2">
                           {pixel.createdAt ? new Date(pixel.createdAt).toLocaleDateString('tr-TR') : '-'}
@@ -784,7 +787,7 @@ navigate('/ers-admin/login');
                         {pixel.title}
                       </td>
                       <td className="font-mono text-sm p-2 font-bold">
-                        ₺{getGrossPriceFromBlocks(pixel.w, pixel.h).toLocaleString('tr-TR')}
+                        ₺{getPixelPrice(pixel).toLocaleString('tr-TR')}
                       </td>
                       <td className="font-mono text-sm text-gray-500 p-2">
                         {pixel.createdAt ? new Date(pixel.createdAt).toLocaleDateString('tr-TR') : '-'}

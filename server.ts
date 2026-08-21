@@ -727,7 +727,7 @@ app.get('/api/stats', async (req, res) => {
 
     const { data, error } = await supabase
       .from('pixels')
-      .select('w, h')
+      .select('w, h, price')
       .eq('status', 'approved');
 
     if (error) throw error;
@@ -736,7 +736,10 @@ app.get('/api/stats', async (req, res) => {
     const totalPixels = 1000000;
     const soldPixels = pixels.reduce((acc: number, p: { w: number; h: number }) => acc + (p.w * 10 * p.h * 10), 0);
     const availablePixels = totalPixels - soldPixels;
-    const totalRevenue = pixels.reduce((acc: number, p: { w: number; h: number }) => acc + getGrossPriceFromBlocks(p.w, p.h), 0);
+    const totalRevenue = pixels.reduce((acc: number, p: { w: number; h: number; price?: number | null }) => {
+      const price = p.price != null && Number(p.price) > 0 ? Number(p.price) : getGrossPriceFromBlocks(p.w, p.h);
+      return acc + price;
+    }, 0);
 
     res.json({
       totalPixels,

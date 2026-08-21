@@ -24,6 +24,7 @@ export interface PixelBlock {
   title: string;
   createdAt?: string;
   status?: string;
+  price?: number;
 }
 
 function toPixelBlock(pixel: Pixel): PixelBlock {
@@ -38,6 +39,7 @@ function toPixelBlock(pixel: Pixel): PixelBlock {
     title: pixel.title,
     createdAt: pixel.created_at,
     status: pixel.status,
+    price: pixel.price != null ? Number(pixel.price) : undefined,
   };
 }
 
