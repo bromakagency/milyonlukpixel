@@ -536,30 +536,36 @@ navigate('/ers-admin/login');
                   <span className="font-mono text-xs text-gray-500 uppercase">Toplam Gelir</span>
                 </div>
                 <p className="font-display text-2xl md:text-3xl font-black">
-                  ₺{stats.totalRevenue.toLocaleString()}
+                  ₺{stats.totalRevenue.toLocaleString('tr-TR')}
+                </p>
+                <p className="font-mono text-xs text-gray-500 mt-1">
+                  {(stats.soldPixels / 100).toLocaleString('tr-TR')} Blok Satışı
                 </p>
               </div>
 
               <div className="bg-white border-2 border-black brutal-shadow-sm p-4 md:p-6">
                 <div className="flex items-center gap-3 mb-2">
                   <TrendingUp className="w-5 h-5 text-green-600" />
-                  <span className="font-mono text-xs text-gray-500 uppercase">Satılan Pixel</span>
+                  <span className="font-mono text-xs text-gray-500 uppercase">Satılan Piksel</span>
                 </div>
                 <p className="font-display text-2xl md:text-3xl font-black">
-                  {(stats.soldPixels / 100).toLocaleString()}
+                  {stats.soldPixels.toLocaleString('tr-TR')} <span className="text-sm font-mono font-bold text-gray-500">px</span>
                 </p>
                 <p className="font-mono text-xs text-gray-500 mt-1">
-                  {((stats.soldPixels / stats.totalPixels) * 100).toFixed(2)}%
+                  {(stats.soldPixels / 100).toLocaleString('tr-TR')} Blok • {((stats.soldPixels / stats.totalPixels) * 100).toFixed(2)}%
                 </p>
               </div>
 
               <div className="bg-white border-2 border-black brutal-shadow-sm p-4 md:p-6">
                 <div className="flex items-center gap-3 mb-2">
                   <MousePointer className="w-5 h-5 text-blue-600" />
-                  <span className="font-mono text-xs text-gray-500 uppercase">Kalan</span>
+                  <span className="font-mono text-xs text-gray-500 uppercase">Kalan Piksel</span>
                 </div>
                 <p className="font-display text-2xl md:text-3xl font-black">
-                  {(stats.availablePixels / 100).toLocaleString()}
+                  {stats.availablePixels.toLocaleString('tr-TR')} <span className="text-sm font-mono font-bold text-gray-500">px</span>
+                </p>
+                <p className="font-mono text-xs text-gray-500 mt-1">
+                  {(stats.availablePixels / 100).toLocaleString('tr-TR')} Blok Kalan
                 </p>
               </div>
 
