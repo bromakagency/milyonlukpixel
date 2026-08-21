@@ -132,7 +132,7 @@ type PixelArea = { id?: string; x: number; y: number; w: number; h: number };
 
 const GRID_BLOCKS_X = 125;
 const GRID_BLOCKS_Y = 80;
-const PENDING_ORDER_TTL_MINUTES = 15;
+const PENDING_ORDER_TTL_MINUTES = 8;
 const PENDING_UPLOAD_IMAGE_URL = 'https://milyonlukpiksel.com/pending-upload.webp';
 const MERCHANT_OID_PATTERN = /^MP\d{10,16}[A-F0-9]{8}$/;
 
@@ -1049,6 +1049,47 @@ app.get('/api/payment/order-status/:oid', async (req, res) => {
   } catch (error) {
     console.error('Order status error:', error);
     res.status(500).json({ error: 'Sipariş durumu alınamadı' });
+  }
+});
+
+// İptal edilen/başarısız olan siparişleri anında reddedildi/failed durumuna getirme
+app.post('/api/payment/cancel-order', async (req, res) => {
+  try {
+    const { merchantOid } = req.body || {};
+    const oid = normalizeString(merchantOid);
+    if (!oid || !/^MP\d{10,16}[A-F0-9]{8}$/.test(oid)) {
+      res.status(400).json({ error: 'Geçersiz sipariş numarası' });
+      return;
+    }
+
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) {
+      res.status(500).json({ error: 'Supabase servisi yok' });
+      return;
+    }
+
+    // Sadece 'pending' (bekliyor) olan siparişleri 'rejected' durumuna çek
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'rejected',
+        details: { rejected_reason: 'user_cancelled_payment' },
+        updated_at: new Date().toISOString()
+      })
+      .eq('merchant_oid', oid)
+      .eq('status', 'pending');
+
+    if (error) {
+      console.error('Cancel order DB error:', error);
+      res.status(500).json({ error: 'Sipariş iptal güncellenemedi' });
+      return;
+    }
+
+    console.log('Order immediately cancelled by user:', oid);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(500).json({ error: 'İptal işlemi başarısız' });
   }
 });
 

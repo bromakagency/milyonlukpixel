@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { XCircle, Copy, Twitter, Link as LinkIcon, Check, Download, Share2 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
@@ -59,6 +59,16 @@ export function PaymentResult() {
       window.location.href = '/';
     }
   }, [isSuccess, areaId, merchantOid]);
+
+  useEffect(() => {
+    if (!isSuccess && merchantOid) {
+      fetch('/api/payment/cancel-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchantOid }),
+      }).catch((err) => console.error('Cancel order call failed:', err));
+    }
+  }, [isSuccess, merchantOid]);
 
   useEffect(() => {
     if (!isSuccess || !merchantOid) return;

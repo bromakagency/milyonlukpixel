@@ -56,7 +56,7 @@ BEGIN
       SELECT 1 FROM orders o
       WHERE o.id != NEW.id
         AND o.status = 'pending'
-        AND o.created_at >= NOW() - INTERVAL '15 minutes'
+        AND o.created_at >= NOW() - INTERVAL '8 minutes'
         AND NEW.x < o.x + o.w
         AND NEW.x + NEW.w > o.x
         AND NEW.y < o.y + o.h
