@@ -900,8 +900,17 @@ navigate('/ers-admin/login');
                       <td className="font-mono text-sm p-2">X:{order.x * 10} Y:{order.y * 10}</td>
                       <td className="font-mono text-sm p-2">{order.w * 10}x{order.h * 10}</td>
                       <td className="font-mono text-sm p-2 font-bold">₺{order.amount.toLocaleString()}</td>
-                      <td className="font-mono text-sm text-gray-500 p-2">
-                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString('tr-TR') : '-'}
+                      <td className="font-mono text-sm text-gray-600 p-2 whitespace-nowrap">
+                        {order.createdAt
+                          ? new Date(order.createdAt).toLocaleString('tr-TR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                            })
+                          : '-'}
                       </td>
                       <td className="p-2">
                         <button
