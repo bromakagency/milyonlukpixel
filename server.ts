@@ -238,6 +238,32 @@ async function assertAreaAvailable(
   return { ok: true };
 }
 
+async function cleanupExpiredPendingOrders(supabase: any) {
+  try {
+    if (!supabase) return;
+    const cutoff = new Date(Date.now() - PENDING_ORDER_TTL_MINUTES * 60 * 1000).toISOString();
+    await supabase
+      .from('orders')
+      .update({
+        status: 'rejected',
+        details: { rejected_reason: 'ttl_expired' },
+        updated_at: new Date().toISOString()
+      })
+      .eq('status', 'pending')
+      .lt('created_at', cutoff);
+  } catch (err) {
+    console.error('Expired pending orders cleanup error:', err);
+  }
+}
+
+// Her 1 dakikada bir 8 dakikayı geçmiş bekleyen siparişleri otomatik reddedildiye çek
+setInterval(() => {
+  const supabase = getSupabaseServiceClient();
+  if (supabase) {
+    cleanupExpiredPendingOrders(supabase);
+  }
+}, 60 * 1000);
+
 app.use(cors({
   origin: (process.env.NODE_ENV === 'production' && process.env.ALLOWED_ORIGIN)
     ? process.env.ALLOWED_ORIGIN 
@@ -460,6 +486,8 @@ app.get('/api/admin/orders', async (req, res) => {
       res.status(403).json({ error: 'Bu islem icin admin yetkisi gerekli' });
       return;
     }
+
+    await cleanupExpiredPendingOrders(service);
 
     const { data, error } = await service
       .from('orders')
