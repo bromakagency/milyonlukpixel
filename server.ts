@@ -347,8 +347,8 @@ app.get('/api/live-count', async (req, res) => {
     console.error('Error fetching total visits:', err);
   }
 
-  // Kullanıcının belirttiği gibi FOMO etkisi (aktif sayı + 2)
-  res.json({ count: count + 2, totalVisits });
+  // Gerçek aktif kullanıcı sayısı
+  res.json({ count, totalVisits });
 });
 
 
