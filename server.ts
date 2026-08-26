@@ -273,14 +273,27 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Canlı Ziyaretçi Takibi (In-memory Cache) ─────────────────────────
+// ── Canlı Ziyaretçi Takibi (Database & Fallback In-memory) ─────────────────
 const activeVisitors = new Map<string, number>();
 
-app.post('/api/heartbeat', (req, res) => {
-  const visitorId = req.body.visitorId || req.ip;
-  if (visitorId) {
-    activeVisitors.set(visitorId as string, Date.now());
+app.post('/api/heartbeat', async (req, res) => {
+  const visitorId = String(req.body.visitorId || req.ip || 'unknown').replace('::ffff:', '');
+  
+  // 1. Yerel hafızayı güncelle (fallback)
+  activeVisitors.set(visitorId, Date.now());
+
+  // 2. Supabase üzerinde seansı güncelle
+  try {
+    const supabase = getSupabaseServiceClient();
+    if (supabase) {
+      await supabase
+        .from('active_sessions')
+        .upsert({ visitor_id: visitorId, last_seen: new Date().toISOString() }, { onConflict: 'visitor_id' });
+    }
+  } catch (err) {
+    console.error('Error updating active session in Supabase:', err);
   }
+
   res.sendStatus(200);
 });
 
@@ -320,35 +333,60 @@ app.post('/api/visit', async (req, res) => {
 
 app.get('/api/live-count', async (req, res) => {
   const now = Date.now();
-  let count = 0;
+  
+  // Yerel hafızadaki eski ziyaretçileri temizle (fallback için güncel tutulur)
+  let localCount = 0;
   for (const [id, time] of activeVisitors.entries()) {
-    // 2 dakikadan (120000ms) eski ziyaretçileri temizle
     if (now - time > 120000) {
       activeVisitors.delete(id);
     } else {
-      count++;
+      localCount++;
     }
   }
 
+  let count = localCount;
   let totalVisits = 83681; // Varsayılan/Fallback başlangıç değeri
+
   try {
     const supabase = getSupabaseServiceClient();
     if (supabase) {
-      const { data, error } = await supabase
+      // 1. Son 2 dakikadaki aktif veritabanı seanslarını say
+      const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
+      const { count: dbCount, error: countErr } = await supabase
+        .from('active_sessions')
+        .select('*', { count: 'exact', head: true })
+        .gte('last_seen', twoMinutesAgo);
+
+      if (!countErr && dbCount !== null) {
+        count = dbCount;
+      } else if (countErr) {
+        console.warn('Supabase active sessions query error:', countErr);
+      }
+
+      // 2. 5 dakikadan eski seansları temizle (Tablonun şişmesini önler)
+      const fiveMinutesAgo = new Date(Date.now() - 300000).toISOString();
+      try {
+        await supabase.from('active_sessions').delete().lt('last_seen', fiveMinutesAgo);
+      } catch (err) {
+        // sessizce geç
+      }
+
+      // 3. Toplam ziyaretçi sayısını çek
+      const { data: statsData, error: statsErr } = await supabase
         .from('visitor_stats')
         .select('total_visits')
         .eq('id', 'global')
         .single();
-      if (!error && data) {
-        totalVisits = Number(data.total_visits);
+      if (!statsErr && statsData) {
+        totalVisits = Number(statsData.total_visits);
       }
     }
   } catch (err) {
-    console.error('Error fetching total visits:', err);
+    console.error('Error fetching live count or total visits:', err);
   }
 
-  // Gerçek aktif kullanıcı sayısı
-  res.json({ count, totalVisits });
+  // En az 1 kişi (kendisi) olacak şekilde gerçek aktif kullanıcı sayısı
+  res.json({ count: Math.max(1, count), totalVisits });
 });
 
 

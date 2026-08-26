@@ -192,3 +192,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+-- =============================================
+-- AKTİF ZİYARETÇİ SEANSLARI (ACTIVE SESSIONS)
+-- =============================================
+CREATE TABLE IF NOT EXISTS active_sessions (
+  visitor_id VARCHAR PRIMARY KEY,
+  last_seen TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_active_sessions_last_seen ON active_sessions(last_seen DESC);
+
+
