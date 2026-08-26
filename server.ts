@@ -288,7 +288,37 @@ app.get('/api/heartbeat', (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/live-count', (req, res) => {
+app.post('/api/visit', async (req, res) => {
+  try {
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) {
+      res.status(500).json({ error: 'Supabase servisi yok' });
+      return;
+    }
+
+    const { error } = await supabase.rpc('increment_visits');
+    if (error) {
+      console.warn('RPC increment_visits failed, attempting fallback update:', error);
+      const { data: currentStats } = await supabase
+        .from('visitor_stats')
+        .select('total_visits')
+        .eq('id', 'global')
+        .single();
+
+      const nextVal = currentStats ? Number(currentStats.total_visits) + 1 : 83681;
+      await supabase
+        .from('visitor_stats')
+        .upsert({ id: 'global', total_visits: nextVal }, { onConflict: 'id' });
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Visit register error:', error);
+    res.status(500).json({ error: 'Ziyaret kaydedilemedi' });
+  }
+});
+
+app.get('/api/live-count', async (req, res) => {
   const now = Date.now();
   let count = 0;
   for (const [id, time] of activeVisitors.entries()) {
@@ -299,9 +329,28 @@ app.get('/api/live-count', (req, res) => {
       count++;
     }
   }
+
+  let totalVisits = 83681; // Varsayılan/Fallback başlangıç değeri
+  try {
+    const supabase = getSupabaseServiceClient();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('visitor_stats')
+        .select('total_visits')
+        .eq('id', 'global')
+        .single();
+      if (!error && data) {
+        totalVisits = Number(data.total_visits);
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching total visits:', err);
+  }
+
   // Kullanıcının belirttiği gibi FOMO etkisi (aktif sayı + 2)
-  res.json({ count: count + 2 });
+  res.json({ count: count + 2, totalVisits });
 });
+
 
 // ── Cloudflare R2 Dosya Yükleme ───────────────────────────────────────────
 app.post('/api/upload', uploadRateLimiter, upload.single('file'), async (req, res) => {

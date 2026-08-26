@@ -25,6 +25,11 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
     return cached ? parseInt(cached, 10) : 3; // İlk girişte en az 3 (kendisi + 2 taktik)
   });
 
+  const [totalVisits, setTotalVisits] = useState(() => {
+    const cached = localStorage.getItem('pixel_total_visits');
+    return cached ? parseInt(cached, 10) : 83681;
+  });
+
   useEffect(() => {
     let visitorId = localStorage.getItem('pixel_visitor_id');
     if (!visitorId) {
@@ -33,6 +38,16 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
     }
     // Sadece geliştirme (dev) ortamında localhost kullan, canlıda (Vercel) aynı domaini kullan
     const API_URL = import.meta.env.DEV ? (import.meta.env.VITE_API_URL || 'http://localhost:3001') : '';
+
+    const registerVisit = () => {
+      const sessionVisited = sessionStorage.getItem('pixel_session_visited');
+      if (!sessionVisited) {
+        sessionStorage.setItem('pixel_session_visited', 'true');
+        fetch(`${API_URL}/api/visit`, {
+          method: 'POST',
+        }).catch(() => {});
+      }
+    };
 
     const sendHeartbeat = () => {
       fetch(`${API_URL}/api/heartbeat`, {
@@ -53,12 +68,17 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
             setLiveUsers(fakeCount);
             localStorage.setItem('pixel_live_users', fakeCount.toString());
           }
+          if (data && typeof data.totalVisits === 'number') {
+            setTotalVisits(data.totalVisits);
+            localStorage.setItem('pixel_total_visits', data.totalVisits.toString());
+          }
         }
       } catch (error) {
         // sessizce geç
       }
     };
 
+    registerVisit();
     sendHeartbeat();
     fetchLiveCount();
 
@@ -127,7 +147,11 @@ export function Header({ title = 'Milyonluk', subtitle = 'Ana Sayfa' }: HeaderPr
               <p className="text-sm leading-5 text-gray-600">
                 Son 24 saatte <strong className="text-red-600">{loading ? <span className="animate-pulse">...</span> : recentBlocksSold24h}</strong> blok satıldı
                 <br />
-                Şu an <strong className="text-red-600">{liveUsers}</strong> kişi alanları inceliyor
+                Şu an <strong className="text-red-600">{liveUsers}</strong> kişi alanları inceliyor{' '}
+                <span className="block md:inline-block mt-1 md:mt-0 font-semibold text-gray-800">
+                  <span className="hidden md:inline text-gray-300 mx-1">/</span>
+                  <strong className="font-extrabold text-red-600">{formatNumber(totalVisits)}</strong> ziyaret
+                </span>
               </p>
             </div>
           </div>
