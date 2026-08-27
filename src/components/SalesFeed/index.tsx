@@ -41,7 +41,7 @@ export function SalesFeed() {
   useEffect(() => {
     supabase
       .from('pixels')
-      .select('*')
+      .select('id, title, x, y, w, h, link_url, created_at')
       .order('created_at', { ascending: false })
       .limit(10)
       .then(({ data }) => {

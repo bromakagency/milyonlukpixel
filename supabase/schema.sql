@@ -134,7 +134,12 @@ ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
--- Pixel okuma herkese açık, yazma sadece authenticated
+-- Pixel okuma herkese açık (sadece genel alanlar, hassas kullanıcı bilgileri hariç)
+REVOKE SELECT ON pixels FROM anon;
+REVOKE SELECT ON pixels FROM authenticated;
+GRANT SELECT (id, x, y, w, h, image_url, link_url, title, status, created_at, updated_at) ON pixels TO anon;
+GRANT SELECT (id, x, y, w, h, image_url, link_url, title, status, created_at, updated_at) ON pixels TO authenticated;
+
 CREATE POLICY "Pixels are viewable by everyone" ON pixels
   FOR SELECT USING (status = 'approved');
 

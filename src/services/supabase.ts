@@ -104,24 +104,24 @@ export const db = {
     async getAll(): Promise<Pixel[]> {
       const { data, error } = await supabase
         .from('pixels')
-        .select('*')
+        .select('id, x, y, w, h, image_url, link_url, title, status, created_at')
         .eq('status', 'approved')
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as Pixel[];
     },
 
     async getById(id: string): Promise<Pixel | null> {
       const { data, error } = await supabase
         .from('pixels')
-        .select('*')
+        .select('id, x, y, w, h, image_url, link_url, title, status, created_at')
         .eq('id', id)
         .eq('status', 'approved')
         .single();
       
       if (error) return null;
-      return data;
+      return data as Pixel;
     },
 
     async create(pixel: Omit<Pixel, 'id' | 'created_at' | 'updated_at'>): Promise<Pixel> {
@@ -242,7 +242,7 @@ export const db = {
     async get(): Promise<Stats> {
       const { data, error } = await supabase
         .from('pixels')
-        .select('w, h, price')
+        .select('w, h')
         .eq('status', 'approved');
       
       if (error) throw error;
@@ -252,8 +252,7 @@ export const db = {
       const soldPixels = pixels.reduce((acc, p) => acc + (p.w * 10 * p.h * 10), 0);
       const availablePixels = totalPixels - soldPixels;
       const totalRevenue = pixels.reduce((acc, p) => {
-        const price = p.price != null && Number(p.price) > 0 ? Number(p.price) : getGrossPriceFromBlocks(p.w, p.h);
-        return acc + price;
+        return acc + getGrossPriceFromBlocks(p.w, p.h);
       }, 0);
       
       return {
