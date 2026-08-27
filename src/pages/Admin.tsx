@@ -77,13 +77,15 @@ export function Admin() {
     try {
       const authStatus = await adminApi.isAuthenticated();
       if (!authStatus) {
+        await adminApi.logout().catch(() => {});
         navigate('/ers-admin/login');
         return;
       }
       const adminInfo = await adminApi.getMe();
       setAdmin(adminInfo);
     } catch (error) {
-navigate('/ers-admin/login');
+      await adminApi.logout().catch(() => {});
+      navigate('/ers-admin/login');
     }
   };
 
