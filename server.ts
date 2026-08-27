@@ -105,7 +105,7 @@ const heartbeatRateLimiter = rateLimit({
 
 const orderStatusRateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
-  max: 40,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Cok fazla siparis durumu sorgulama denemesi.' },
@@ -173,9 +173,21 @@ function getOrderAccessToken(value: unknown): string | null {
 }
 
 function hasOrderAccessToken(order: { details?: unknown }, candidate: string | null): boolean {
-  if (!candidate || !order.details || typeof order.details !== 'object') return false;
-  const stored = getOrderAccessToken((order.details as Record<string, unknown>).order_access_token);
-  if (!stored) return false;
+  if (!candidate || !order.details) return false;
+  let detailsObj: Record<string, unknown> = {};
+  if (typeof order.details === 'string') {
+    try {
+      detailsObj = JSON.parse(order.details);
+    } catch {
+      return false;
+    }
+  } else if (typeof order.details === 'object' && order.details !== null) {
+    detailsObj = order.details as Record<string, unknown>;
+  } else {
+    return false;
+  }
+  const stored = getOrderAccessToken(detailsObj.order_access_token);
+  if (!stored || stored.length !== 64 || candidate.length !== 64) return false;
 
   return crypto.timingSafeEqual(Buffer.from(stored, 'utf8'), Buffer.from(candidate, 'utf8'));
 }

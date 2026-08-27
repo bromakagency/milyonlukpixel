@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { XCircle, Copy, Twitter, Link as LinkIcon, Check, Download, Share2 } from 'lucide-react';
+import { XCircle, Copy, Twitter, Link as LinkIcon, Check, Download, Share2, RefreshCw, Clock } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 
 const SHARE_CARD_WIDTH = 360;
@@ -13,14 +13,15 @@ export function PaymentResult() {
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [sharing, setSharing] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<'checking' | 'paid' | 'failed'>(
+  const [paymentStatus, setPaymentStatus] = useState<'checking' | 'paid' | 'delayed' | 'failed'>(
     isSuccess ? 'checking' : 'failed'
   );
+  const [retryKey, setRetryKey] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
   
   // Sadece localStorage'da değer varsa al, yoksa null
   const [areaId] = useState(() => {
-    const stored = localStorage.getItem('lastPurchasedId');
+    const stored = localStorage.getItem('lastPurchasedId') || sessionStorage.getItem('lastPurchasedId');
     if (stored) return stored;
     // localStorage yoksa (farkli tab/browser) OID'nin son 8 karakterinden turetelim
     const params = new URLSearchParams(window.location.search);
@@ -33,19 +34,31 @@ export function PaymentResult() {
   });
 
   const [userLogo, setUserLogo] = useState(() => {
-    return localStorage.getItem('lastPurchasedLogo');
+    return localStorage.getItem('lastPurchasedLogo') || sessionStorage.getItem('lastPurchasedLogo');
   });
 
   const [merchantOid] = useState(() => {
-    // Once URL param'dan oku: PayTR bizi merchant_ok_url?oid=MP... ile redirect ediyor
-    // Bulamazsa localStorage'a fallback yap (ayni sekme akisi veya eski versiyon)
     const params = new URLSearchParams(window.location.search);
-    return params.get('oid') || localStorage.getItem('lastMerchantOid');
+    const oid = params.get('oid') || localStorage.getItem('lastMerchantOid') || sessionStorage.getItem('lastMerchantOid');
+    if (oid) {
+      try {
+        localStorage.setItem('lastMerchantOid', oid);
+        sessionStorage.setItem('lastMerchantOid', oid);
+      } catch {}
+    }
+    return oid;
   });
 
   const [orderAccessToken] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('access_token') || localStorage.getItem('lastOrderAccessToken');
+    const token = params.get('access_token') || localStorage.getItem('lastOrderAccessToken') || sessionStorage.getItem('lastOrderAccessToken');
+    if (token) {
+      try {
+        localStorage.setItem('lastOrderAccessToken', token);
+        sessionStorage.setItem('lastOrderAccessToken', token);
+      } catch {}
+    }
+    return token;
   });
 
   const [base64Logo, setBase64Logo] = useState<string | null>(null);
@@ -57,9 +70,6 @@ export function PaymentResult() {
       window.top!.location.href = window.location.href;
     }
 
-    // Eğer başarılı sayfasındaysa ama localStorage'da ID yoksa (direkt URL'den girildiyse)
-    // merchantOid yoksa redirect et (areaId display-only, kritik degil)
-    // Not: URL'den ?oid= parametresi geldiyse merchantOid localStorage'a gerek kalmadan dolar
     if (isSuccess && (!merchantOid || !orderAccessToken)) {
       window.location.href = '/';
     }
@@ -88,6 +98,9 @@ export function PaymentResult() {
 
     let cancelled = false;
     let attempts = 0;
+    const maxAttempts = 45; // ~85-90 saniye boyunca sorgula
+
+    setPaymentStatus('checking');
 
     const checkOrder = async () => {
       attempts += 1;
@@ -101,9 +114,8 @@ export function PaymentResult() {
 
         if (res.ok && json.status === 'paid') {
           setPaymentStatus('paid');
-          // localStorage bos olabilir (farkli tab/browser); API'dan gelen logoyu kullan
           if (json.imageUrl) {
-            setUserLogo(prev => prev || json.imageUrl);
+            setUserLogo((prev) => prev || json.imageUrl);
           }
           return;
         }
@@ -116,10 +128,15 @@ export function PaymentResult() {
         console.error('Payment status check failed:', error);
       }
 
-      if (!cancelled && attempts < 10) {
-        setTimeout(checkOrder, 1500);
-      } else if (!cancelled) {
-        setPaymentStatus('failed');
+      if (cancelled) return;
+
+      if (attempts < maxAttempts) {
+        // İlk 10 deneme 1.5 sn, sonraki denemeler 2 sn arayla
+        const delay = attempts < 10 ? 1500 : 2000;
+        setTimeout(checkOrder, delay);
+      } else {
+        // Süre dolduğunda hemen "başarısız" demek yerine onay aşamasında beklet
+        setPaymentStatus('delayed');
       }
     };
 
@@ -128,7 +145,7 @@ export function PaymentResult() {
     return () => {
       cancelled = true;
     };
-  }, [isSuccess, merchantOid, orderAccessToken]);
+  }, [isSuccess, merchantOid, orderAccessToken, retryKey]);
 
   useEffect(() => {
     if (userLogo) {
@@ -277,11 +294,43 @@ export function PaymentResult() {
     return (
       <div className="min-h-screen bg-[#f4f4f0] flex flex-col items-center justify-center p-4 selection:bg-red-600 selection:text-white">
         <div className="bg-white border-4 border-black brutal-shadow max-w-md w-full p-8 text-center space-y-4">
-          <Check className="h-16 w-16 text-green-600 mx-auto" />
-          <h1 className="font-display font-black text-3xl uppercase">Ödeme Kontrol Ediliyor</h1>
-          <p className="font-mono text-gray-600">
-            Banka onayı doğrulanıyor. Bu işlem birkaç saniye sürebilir.
+          <div className="w-16 h-16 bg-yellow-400 rounded-full flex items-center justify-center mx-auto border-2 border-black animate-pulse">
+            <RefreshCw className="h-8 w-8 text-black animate-spin" />
+          </div>
+          <h1 className="font-display font-black text-2xl md:text-3xl uppercase">Ödeme Kontrol Ediliyor</h1>
+          <p className="font-mono text-gray-600 text-sm leading-relaxed">
+            Banka ve PayTR onayı doğrulanıyor.<br/>Lütfen sayfayı kapatmayınız, işlem tamamlanmak üzere...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSuccess && paymentStatus === 'delayed') {
+    return (
+      <div className="min-h-screen bg-[#f4f4f0] flex flex-col items-center justify-center p-4 selection:bg-red-600 selection:text-white">
+        <div className="bg-white border-4 border-black brutal-shadow max-w-md w-full p-8 text-center space-y-6">
+          <div className="w-16 h-16 bg-[#ffd700] rounded-full flex items-center justify-center mx-auto border-2 border-black brutal-shadow-sm">
+            <Clock className="h-8 w-8 text-black" />
+          </div>
+          <h1 className="font-display font-black text-2xl md:text-3xl uppercase">Ödemeniz Onay Aşamasında</h1>
+          <p className="font-mono text-gray-600 text-sm leading-relaxed">
+            Banka onayınız alındı. Siparişiniz arka planda sisteme işlenmektedir. Birkaç saniye içinde pikseliniz haritada aktif olacaktır.
+          </p>
+          <div className="space-y-3 pt-2">
+            <button
+              onClick={() => setRetryKey((k) => k + 1)}
+              className="w-full flex items-center justify-center gap-2 bg-[#ffd700] hover:bg-[#ffed4a] text-black font-display font-bold text-lg py-3.5 border-2 border-black brutal-shadow transition-transform active:translate-y-1 active:translate-x-1 active:shadow-none uppercase"
+            >
+              <RefreshCw className="w-5 h-5" /> Durumu Yeniden Kontrol Et
+            </button>
+            <Link
+              to="/"
+              className="inline-block w-full bg-black hover:bg-red-600 text-white font-display font-bold text-lg py-3.5 border-2 border-black brutal-shadow transition-transform active:translate-y-1 active:translate-x-1 active:shadow-none uppercase"
+            >
+              Haritaya Dön
+            </Link>
+          </div>
         </div>
       </div>
     );
