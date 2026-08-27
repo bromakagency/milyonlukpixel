@@ -574,7 +574,8 @@ app.get('/api/admin/orders', async (req, res) => {
       return;
     }
 
-    await cleanupExpiredPendingOrders(service);
+    // Süresi geçmiş bekleyen siparişleri arka planda temizle (API yanıtını engellemesin)
+    void cleanupExpiredPendingOrders(service);
 
     const { data, error } = await service
       .from('orders')
