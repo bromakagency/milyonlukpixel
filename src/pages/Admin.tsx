@@ -90,15 +90,48 @@ navigate('/ers-admin/login');
   const loadData = async () => {
     setIsLoading(true);
     try {
+      const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+        return Promise.race([
+          promise,
+          new Promise<T>((resolve) => setTimeout(() => {
+            console.warn(`Promise timed out after ${ms}ms`);
+            resolve(fallback);
+          }, ms))
+        ]);
+      };
+
+      const statsPromise = withTimeout(api.getStats(), 6000, null)
+        .catch((err) => {
+          console.error('Stats load error:', err);
+          return null;
+        });
+
+      const pixelsPromise = withTimeout(api.getPixels(), 6000, [])
+        .catch((err) => {
+          console.error('Pixels load error:', err);
+          return [];
+        });
+
+      const ordersPromise = withTimeout(adminApi.getOrders(), 6000, [])
+        .catch((err) => {
+          console.error('Orders load error:', err);
+          return [];
+        });
+
       const [statsData, pixelsData, ordersData] = await Promise.all([
-        api.getStats(),
-        api.getPixels(),
-        adminApi.getOrders().catch(() => []),
+        statsPromise,
+        pixelsPromise,
+        ordersPromise,
       ]);
-      setStats(statsData);
-      setPixels(pixelsData);
-      setOrders(ordersData);
-      setSelectedPixelIds((current) => current.filter((id) => pixelsData.some((pixel) => pixel.id === id)));
+
+      if (statsData) {
+        setStats(statsData);
+      }
+      setPixels(pixelsData || []);
+      setOrders(ordersData || []);
+      if (pixelsData) {
+        setSelectedPixelIds((current) => current.filter((id) => pixelsData.some((pixel) => pixel.id === id)));
+      }
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
