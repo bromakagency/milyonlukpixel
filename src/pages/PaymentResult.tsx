@@ -43,6 +43,11 @@ export function PaymentResult() {
     return params.get('oid') || localStorage.getItem('lastMerchantOid');
   });
 
+  const [orderAccessToken] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('access_token') || localStorage.getItem('lastOrderAccessToken');
+  });
+
   const [base64Logo, setBase64Logo] = useState<string | null>(null);
   const [logoLoading, setLogoLoading] = useState(false);
 
@@ -55,23 +60,31 @@ export function PaymentResult() {
     // Eğer başarılı sayfasındaysa ama localStorage'da ID yoksa (direkt URL'den girildiyse)
     // merchantOid yoksa redirect et (areaId display-only, kritik degil)
     // Not: URL'den ?oid= parametresi geldiyse merchantOid localStorage'a gerek kalmadan dolar
-    if (isSuccess && !merchantOid) {
+    if (isSuccess && (!merchantOid || !orderAccessToken)) {
       window.location.href = '/';
     }
-  }, [isSuccess, areaId, merchantOid]);
+  }, [isSuccess, areaId, merchantOid, orderAccessToken]);
 
   useEffect(() => {
-    if (!isSuccess && merchantOid) {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('access_token')) return;
+
+    url.searchParams.delete('access_token');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
+  useEffect(() => {
+    if (!isSuccess && merchantOid && orderAccessToken) {
       fetch('/api/payment/cancel-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ merchantOid }),
+        body: JSON.stringify({ merchantOid, accessToken: orderAccessToken }),
       }).catch((err) => console.error('Cancel order call failed:', err));
     }
-  }, [isSuccess, merchantOid]);
+  }, [isSuccess, merchantOid, orderAccessToken]);
 
   useEffect(() => {
-    if (!isSuccess || !merchantOid) return;
+    if (!isSuccess || !merchantOid || !orderAccessToken) return;
 
     let cancelled = false;
     let attempts = 0;
@@ -79,7 +92,9 @@ export function PaymentResult() {
     const checkOrder = async () => {
       attempts += 1;
       try {
-        const res = await fetch(`/api/payment/order-status/${encodeURIComponent(merchantOid)}`);
+        const res = await fetch(
+          `/api/payment/order-status/${encodeURIComponent(merchantOid)}?access_token=${encodeURIComponent(orderAccessToken)}`
+        );
         const json = await res.json();
 
         if (cancelled) return;
@@ -113,7 +128,7 @@ export function PaymentResult() {
     return () => {
       cancelled = true;
     };
-  }, [isSuccess, merchantOid]);
+  }, [isSuccess, merchantOid, orderAccessToken]);
 
   useEffect(() => {
     if (userLogo) {
@@ -396,4 +411,3 @@ export function PaymentResult() {
     </div>
   );
 }
-

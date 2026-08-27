@@ -294,6 +294,9 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
         if (res.oid) {
           localStorage.setItem('lastMerchantOid', res.oid);
         }
+        if (res.orderAccessToken) {
+          localStorage.setItem('lastOrderAccessToken', res.orderAccessToken);
+        }
         if (hasPendingUpload && pendingUploadFile) {
           if (!res.oid) throw new Error('Siparis numarasi alinamadi.');
           const imageUrl = await uploadPendingFile(pendingUploadFile, res.oid);

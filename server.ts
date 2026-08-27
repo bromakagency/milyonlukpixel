@@ -167,6 +167,26 @@ function normalizeNumber(value: unknown): number {
   return typeof value === 'number' ? value : Number(value);
 }
 
+function getOrderAccessToken(value: unknown): string | null {
+  const token = normalizeString(value);
+  return /^[a-f0-9]{64}$/.test(token) ? token : null;
+}
+
+function hasOrderAccessToken(order: { details?: unknown }, candidate: string | null): boolean {
+  if (!candidate || !order.details || typeof order.details !== 'object') return false;
+  const stored = getOrderAccessToken((order.details as Record<string, unknown>).order_access_token);
+  if (!stored) return false;
+
+  return crypto.timingSafeEqual(Buffer.from(stored, 'utf8'), Buffer.from(candidate, 'utf8'));
+}
+
+function buildPaymentResultUrl(baseUrl: string, merchantOid: string, accessToken: string): string {
+  const url = new URL(baseUrl);
+  url.searchParams.set('oid', merchantOid);
+  url.searchParams.set('access_token', accessToken);
+  return url.toString();
+}
+
 function normalizeUserIp(req: express.Request): string {
   const forwarded = req.headers['x-forwarded-for'];
   const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
@@ -986,14 +1006,23 @@ app.post('/api/payment/paytr-token', paytrTokenRateLimiter, async (req, res) => 
     const price = getGrossPriceFromBlocks(w, h);
     const payment_amount = price * 100; // 1 blok = 100TL = 10000 kuruş
     const merchant_oid = 'MP' + Date.now() + crypto.randomBytes(4).toString('hex').toUpperCase();
+    const order_access_token = crypto.randomBytes(32).toString('hex');
     const user_ip = normalizeUserIp(req);
     
     const user_email = email;
     const user_name = title || 'Müşteri';
     const user_address = 'Türkiye';
     const user_phone = '05555555555';
-    const merchant_ok_url  = (process.env.PAYTR_MERCHANT_OK_URL  || 'http://localhost:5173/basarili') + `?oid=${merchant_oid}`;
-    const merchant_fail_url = (process.env.PAYTR_MERCHANT_FAIL_URL || 'http://localhost:5173/hata')     + `?oid=${merchant_oid}`;
+    const merchant_ok_url = buildPaymentResultUrl(
+      process.env.PAYTR_MERCHANT_OK_URL || 'http://localhost:5173/basarili',
+      merchant_oid,
+      order_access_token
+    );
+    const merchant_fail_url = buildPaymentResultUrl(
+      process.env.PAYTR_MERCHANT_FAIL_URL || 'http://localhost:5173/hata',
+      merchant_oid,
+      order_access_token
+    );
     const user_basket = Buffer.from(JSON.stringify([
       [`Milyonluk Piksel Alanı (${w*10}x${h*10})`, price.toString(), 1]
     ])).toString('base64');
@@ -1015,6 +1044,7 @@ app.post('/api/payment/paytr-token', paytrTokenRateLimiter, async (req, res) => 
       amount: price,
       status: 'pending',
       merchant_oid,
+      details: { order_access_token },
     }).select().single();
 
     if (dbError || !order) {
@@ -1058,7 +1088,7 @@ app.post('/api/payment/paytr-token', paytrTokenRateLimiter, async (req, res) => 
     const result = await response.json();
     
     if (result.status === 'success') {
-      res.json({ token: result.token, oid: merchant_oid });
+      res.json({ token: result.token, oid: merchant_oid, orderAccessToken: order_access_token });
     } else {
       console.error('PayTR Token Error:', result);
       await supabase.from('orders').update({
@@ -1256,6 +1286,7 @@ app.post('/api/payment/paytr-callback', paytrCallbackRateLimiter, async (req, re
 app.get('/api/payment/order-status/:oid', orderStatusRateLimiter, async (req, res) => {
   try {
     const oid = normalizeString(req.params.oid);
+    const accessToken = getOrderAccessToken(req.query.access_token);
     // OID format: 'MP' + Date.now() (13 rakam) + randomBytes(4).hex.toUpperCase() (8 karakter [0-9A-F])
     // Örnek: MP1746134567890A1B2C3D4E  (toplam ~23 karakter)
     // Eski regex (^MP\d+[A-F0-9]{8}$) kırıktı: \d+ greedy olduğu için hex kısımdaki
@@ -1273,11 +1304,11 @@ app.get('/api/payment/order-status/:oid', orderStatusRateLimiter, async (req, re
 
     const { data: order, error } = await supabase
       .from('orders')
-      .select('status, image_url')
+      .select('status, image_url, details')
       .eq('merchant_oid', oid)
       .single();
 
-    if (error || !order) {
+    if (error || !order || !hasOrderAccessToken(order, accessToken)) {
       res.status(404).json({ error: 'Sipariş bulunamadı' });
       return;
     }
@@ -1292,8 +1323,9 @@ app.get('/api/payment/order-status/:oid', orderStatusRateLimiter, async (req, re
 // İptal edilen/başarısız olan siparişleri anında reddedildi/failed durumuna getirme
 app.post('/api/payment/cancel-order', async (req, res) => {
   try {
-    const { merchantOid } = req.body || {};
+    const { merchantOid, accessToken: rawAccessToken } = req.body || {};
     const oid = normalizeString(merchantOid);
+    const accessToken = getOrderAccessToken(rawAccessToken);
     if (!oid || !/^MP\d{10,16}[A-F0-9]{8}$/.test(oid)) {
       res.status(400).json({ error: 'Geçersiz sipariş numarası' });
       return;
@@ -1306,6 +1338,18 @@ app.post('/api/payment/cancel-order', async (req, res) => {
     }
 
     // Sadece 'pending' (bekliyor) olan siparişleri 'rejected' durumuna çek
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id, details')
+      .eq('merchant_oid', oid)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (orderError || !order || !hasOrderAccessToken(order, accessToken)) {
+      res.status(404).json({ error: 'SipariÅŸ bulunamadÄ±' });
+      return;
+    }
+
     const { error } = await supabase
       .from('orders')
       .update({
@@ -1313,7 +1357,7 @@ app.post('/api/payment/cancel-order', async (req, res) => {
         details: { rejected_reason: 'user_cancelled_payment' },
         updated_at: new Date().toISOString()
       })
-      .eq('merchant_oid', oid)
+      .eq('id', order.id)
       .eq('status', 'pending');
 
     if (error) {

@@ -27,6 +27,10 @@ function isPixelOrderEmail(value: unknown): value is PixelOrderEmail {
 }
 
 export default async function handler(req: any, res: any) {
+  // Purchase notifications are sent only by the PayTR callback in server.ts.
+  res.status(404).json({ error: 'Not found' });
+  return;
+
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
