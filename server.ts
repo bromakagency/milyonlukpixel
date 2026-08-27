@@ -453,6 +453,7 @@ app.post('/api/upload', uploadRateLimiter, upload.single('file'), async (req, re
     }
 
     const merchantOid = normalizeString(req.body?.merchantOid || req.body?.merchant_oid);
+    const orderAccessToken = getOrderAccessToken(req.body?.accessToken || req.body?.access_token);
     if (!MERCHANT_OID_PATTERN.test(merchantOid)) {
       res.status(400).json({ error: 'Gecersiz siparis numarasi' });
       return;
@@ -467,7 +468,7 @@ app.post('/api/upload', uploadRateLimiter, upload.single('file'), async (req, re
     const reservationCutoff = new Date(Date.now() - PENDING_ORDER_TTL_MINUTES * 60 * 1000).toISOString();
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, image_url, status, created_at')
+      .select('id, image_url, status, created_at, details')
       .eq('merchant_oid', merchantOid)
       .eq('status', 'pending')
       .gte('created_at', reservationCutoff)
@@ -475,6 +476,11 @@ app.post('/api/upload', uploadRateLimiter, upload.single('file'), async (req, re
 
     if (orderError || !order) {
       res.status(403).json({ error: 'Gecerli bir bekleyen odeme kaydi gerekli' });
+      return;
+    }
+
+    if (!hasOrderAccessToken(order, orderAccessToken)) {
+      res.status(403).json({ error: 'Gecerli bir siparis erisim anahtari gerekli' });
       return;
     }
 

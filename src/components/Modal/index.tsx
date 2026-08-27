@@ -221,10 +221,11 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
     }
   };
 
-  const uploadPendingFile = async (file: File, merchantOid: string) => {
+  const uploadPendingFile = async (file: File, merchantOid: string, orderAccessToken: string) => {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('merchantOid', merchantOid);
+    fd.append('accessToken', orderAccessToken);
 
     let res: Response;
     try {
@@ -298,8 +299,8 @@ export function Modal({ isOpen, onClose, onSubmit, selectedCoords }: ModalProps)
           localStorage.setItem('lastOrderAccessToken', res.orderAccessToken);
         }
         if (hasPendingUpload && pendingUploadFile) {
-          if (!res.oid) throw new Error('Siparis numarasi alinamadi.');
-          const imageUrl = await uploadPendingFile(pendingUploadFile, res.oid);
+          if (!res.oid || !res.orderAccessToken) throw new Error('Siparis erisim anahtari alinamadi.');
+          const imageUrl = await uploadPendingFile(pendingUploadFile, res.oid, res.orderAccessToken);
           data.imageUrl = imageUrl;
           setFormData(prev => ({ ...prev, imageUrl }));
           setPendingUploadFile(null);
