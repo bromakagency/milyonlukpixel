@@ -602,6 +602,71 @@ app.get('/api/admin/me', async (req, res) => {
   }
 });
 
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const token = getBearerToken(req);
+    if (!token) {
+      res.status(401).json({ error: 'Yetkilendirme gerekli' });
+      return;
+    }
+
+    const service = getSupabaseServiceClient();
+    if (!service) {
+      res.status(500).json({ error: 'Server Supabase service ayarları eksik' });
+      return;
+    }
+
+    const { data: userData, error: userError } = await service.auth.getUser(token);
+    if (userError || !userData?.user) {
+      res.status(401).json({ error: 'Geçersiz oturum', details: userError?.message });
+      return;
+    }
+
+    if (!getAdminEmailAllowlist().has(String(userData.user.email || '').trim().toLowerCase())) {
+      res.status(403).json({ error: 'Bu islem icin admin yetkisi gerekli' });
+      return;
+    }
+
+    // 1. Onaylı piksellerin kayıtlı gerçek fiyatlarını çek (KDV'li/KDV'siz geçmiş fiyatları korur)
+    const { data: pixels, error: pixelErr } = await service
+      .from('pixels')
+      .select('w, h, price')
+      .eq('status', 'approved');
+
+    if (pixelErr) throw pixelErr;
+
+    const allPixels = pixels || [];
+    const totalPixels = 1000000;
+    const soldPixels = allPixels.reduce((acc: number, p: any) => acc + (p.w * 10 * p.h * 10), 0);
+    const availablePixels = totalPixels - soldPixels;
+
+    // Gerçek kayıtlı fiyatları (fiyat kaydedilmişse onu, yoksa blok hesabını) topla
+    const totalRevenue = allPixels.reduce((acc: number, p: any) => {
+      const price = p.price != null && Number(p.price) > 0 ? Number(p.price) : getGrossPriceFromBlocks(p.w, p.h);
+      return acc + price;
+    }, 0);
+
+    // 2. PayTR ile tamamlanmış 'paid' siparişlerin toplam cirosu
+    const { data: paidOrders } = await service
+      .from('orders')
+      .select('amount')
+      .eq('status', 'paid');
+    
+    const paidOrdersRevenue = (paidOrders || []).reduce((acc: number, o: any) => acc + (Number(o.amount) || 0), 0);
+
+    res.json({
+      totalPixels,
+      soldPixels,
+      availablePixels,
+      totalRevenue,
+      paidOrdersRevenue,
+    });
+  } catch (error) {
+    console.error('Admin stats error:', error);
+    res.status(500).json({ error: 'İstatistikler yüklenemedi' });
+  }
+});
+
 app.get('/api/admin/orders', async (req, res) => {
   try {
     const token = getBearerToken(req);

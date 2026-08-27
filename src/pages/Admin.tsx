@@ -107,7 +107,7 @@ export function Admin() {
         ]);
       };
 
-      const statsPromise = withTimeout(api.getStats(), 6000, null)
+      const statsPromise = withTimeout(adminApi.getStats().catch(() => api.getStats()), 6000, null)
         .catch((err) => {
           console.error('Stats load error:', err);
           return null;

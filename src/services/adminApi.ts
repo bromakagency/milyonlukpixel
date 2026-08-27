@@ -74,6 +74,19 @@ export const adminApi = {
     }
   },
 
+  async getStats(): Promise<{ totalPixels: number; soldPixels: number; availablePixels: number; totalRevenue: number; paidOrdersRevenue?: number }> {
+    const token = await this.getToken();
+    if (!token) throw new Error('Geçersiz oturum');
+
+    const res = await fetch('/api/admin/stats', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'İstatistikler yüklenemedi');
+    return json;
+  },
+
   async getOrders(): Promise<AdminOrder[]> {
     const token = await this.getToken();
     if (!token) throw new Error('Geçersiz oturum');
