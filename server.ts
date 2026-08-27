@@ -88,6 +88,29 @@ const paytrTokenRateLimiter = rateLimit({
   message: { error: 'Cok fazla odeme baslatma denemesi. Lutfen biraz bekleyin.' },
 });
 
+const visitRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Cok fazla ziyaret kaydi denemesi.' },
+});
+
+const heartbeatRateLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const orderStatusRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Cok fazla siparis durumu sorgulama denemesi.' },
+});
+
 function getBearerToken(req: express.Request): string | null {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
@@ -264,6 +287,17 @@ setInterval(() => {
   }
 }, 60 * 1000);
 
+// ── Güvenlik Başlıkları (Security Headers) ─────────────────────────────────
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
+
 app.use(cors({
   origin: (process.env.NODE_ENV === 'production' && process.env.ALLOWED_ORIGIN)
     ? process.env.ALLOWED_ORIGIN 
@@ -276,7 +310,7 @@ app.use(express.urlencoded({ extended: true }));
 // ── Canlı Ziyaretçi Takibi (Database & Fallback In-memory) ─────────────────
 const activeVisitors = new Map<string, number>();
 
-app.post('/api/heartbeat', async (req, res) => {
+app.post('/api/heartbeat', heartbeatRateLimiter, async (req, res) => {
   const visitorId = String(req.body.visitorId || req.ip || 'unknown').replace('::ffff:', '');
   
   // 1. Yerel hafızayı güncelle (fallback)
@@ -301,7 +335,7 @@ app.get('/api/heartbeat', (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/api/visit', async (req, res) => {
+app.post('/api/visit', visitRateLimiter, async (req, res) => {
   try {
     const supabase = getSupabaseServiceClient();
     if (!supabase) {
@@ -1154,7 +1188,7 @@ app.post('/api/payment/paytr-callback', paytrCallbackRateLimiter, async (req, re
 // ── Image Proxy (CORS bypass for R2 CDN) ─────────────────────────────────────
 // Frontend'den fetch ettiğimizde R2'nin CORS politikası engeller.
 // Bu endpoint sunucu tarafında görseli çekip client'a iletir.
-app.get('/api/payment/order-status/:oid', async (req, res) => {
+app.get('/api/payment/order-status/:oid', orderStatusRateLimiter, async (req, res) => {
   try {
     const oid = normalizeString(req.params.oid);
     // OID format: 'MP' + Date.now() (13 rakam) + randomBytes(4).hex.toUpperCase() (8 karakter [0-9A-F])
