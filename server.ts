@@ -488,6 +488,17 @@ app.post('/api/admin/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
+    if (!email || !password) {
+      res.status(400).json({ error: 'E-posta ve şifre gerekli' });
+      return;
+    }
+
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!getAdminEmailAllowlist().has(normalizedEmail)) {
+      res.status(403).json({ error: 'Bu e-posta adresi admin yetkisine sahip değil' });
+      return;
+    }
+
     const supabase = getSupabaseServiceClient();
     if (!supabase) {
       res.status(500).json({ error: 'Supabase ayarları eksik' });
@@ -495,20 +506,21 @@ app.post('/api/admin/login', async (req, res) => {
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password
     });
 
-    if (error) {
-      res.status(401).json({ error: error.message });
+    if (error || !data.user) {
+      res.status(401).json({ error: error?.message || 'Giriş başarısız' });
       return;
     }
 
     res.json({
       token: data.session?.access_token,
       admin: {
-        id: data.user?.id,
-        email: data.user?.email,
+        id: data.user.id,
+        email: data.user.email,
+        role: 'superadmin'
       }
     });
   } catch (error) {
@@ -539,10 +551,17 @@ app.get('/api/admin/me', async (req, res) => {
       res.status(401).json({ error: 'Geçersiz token' });
       return;
     }
+
+    const normalizedEmail = String(user.email || '').trim().toLowerCase();
+    if (!getAdminEmailAllowlist().has(normalizedEmail)) {
+      res.status(403).json({ error: 'Bu e-posta adresi admin yetkisine sahip değil' });
+      return;
+    }
     
     res.json({
       adminId: user.id,
       email: user.email,
+      role: 'superadmin',
     });
   } catch (error) {
     res.status(500).json({ error: 'Sunucu hatası' });

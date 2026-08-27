@@ -82,6 +82,11 @@ export function Admin() {
         return;
       }
       const adminInfo = await adminApi.getMe();
+      if (!adminInfo) {
+        await adminApi.logout().catch(() => {});
+        navigate('/ers-admin/login');
+        return;
+      }
       setAdmin(adminInfo);
     } catch (error) {
       await adminApi.logout().catch(() => {});
