@@ -19,8 +19,42 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 }
 
 export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) 
-  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    })
   : null as any;
+
+// Geçersiz/süresi dolmuş oturumları otomatik temizle.
+// Supabase SDK, bozuk bir refresh token ile karşılaştığında tüm sorguları kilitleyebilir.
+// Bu dinleyici, oturum hatalarında otomatik olarak çıkış yaparak kilitlenmeyi önler.
+if (supabase) {
+  supabase.auth.onAuthStateChange((event: string, session: any) => {
+    if (event === 'TOKEN_REFRESHED' && !session) {
+      // Token yenileme başarısız oldu - bozuk oturumu temizle
+      console.warn('Supabase: Token yenileme başarısız, oturum temizleniyor...');
+      supabase.auth.signOut().catch(() => {});
+    }
+    if (event === 'SIGNED_OUT') {
+      // localStorage'daki kalan Supabase anahtarlarını temizle
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((key) => localStorage.removeItem(key));
+      } catch {
+        // localStorage erişim hatası - sessizce geç
+      }
+    }
+  });
+}
 
 export interface Pixel {
   id: string;
